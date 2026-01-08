@@ -1,0 +1,31 @@
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.classpath
+.c9/
+*.sublime-workspace
+
+# Dependencies
+vendor/
+node_modules/
+composer.lock
+package-lock.json
+yarn.lock
+
+# Build and Runtime
+dist/
+build/
+*.log
+.env
+.env.local
+
+# OS
+Thumbs.db
+
+# WordPress
+wp-config-local.php
