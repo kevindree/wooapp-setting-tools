@@ -63,7 +63,7 @@ class REST extends AbstractService
         // Register app position endpoints
         $this->app_position_endpoints->register_route();
 
-        // Register app banners endpoints
+        // Register app banners and banner groups endpoints
         $this->app_banners_endpoints->register_routes();
     }
 }

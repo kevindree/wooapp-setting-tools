@@ -12,16 +12,18 @@ defined('ABSPATH') || exit;
 
 /**
  * Banner Manager
- * Manages app banner configuration and operations
+ * Manages app banner configuration and operations including groups
  */
 class BannerManager
 {
+    const OPTION_BANNER_GROUPS = 'wooapp_banner_groups';
     /**
      * Get all banners
      * 
+     * @param string|null $group Filter by group, null to get all
      * @return array Array of banners with their metadata
      */
-    public static function get_banners()
+    public static function get_banners($group = null)
     {
         $banners = get_option(Constants::OPTION_APP_BANNERS, array());
         
@@ -30,14 +32,52 @@ class BannerManager
             return array();
         }
         
-        // Sort by order
+        // Filter by group if specified
+        if ($group !== null) {
+            $banners = array_filter($banners, function($banner) use ($group) {
+                $banner_group = isset($banner['group']) ? $banner['group'] : 'default';
+                return $banner_group === $group;
+            });
+        }
+        
+        // Sort by group then by order
         usort($banners, function($a, $b) {
+            $group_a = isset($a['group']) ? $a['group'] : 'default';
+            $group_b = isset($b['group']) ? $b['group'] : 'default';
+            
+            // First sort by group
+            if ($group_a !== $group_b) {
+                return strcmp($group_a, $group_b);
+            }
+            
+            // Then sort by order within the same group
             $order_a = isset($a['order']) ? (int)$a['order'] : 0;
             $order_b = isset($b['order']) ? (int)$b['order'] : 0;
             return $order_a - $order_b;
         });
         
-        return $banners;
+        // Ensure order values are sequential (0, 1, 2, ...)
+        if ($group === null) {
+            // For all banners, reindex order by group
+            $grouped = array();
+            foreach ($banners as &$banner) {
+                $banner_group = isset($banner['group']) ? $banner['group'] : 'default';
+                if (!isset($grouped[$banner_group])) {
+                    $grouped[$banner_group] = 0;
+                }
+                $banner['order'] = $grouped[$banner_group];
+                $grouped[$banner_group]++;
+            }
+            unset($banner);
+        } else {
+            // For single group, simple reindex
+            foreach ($banners as $index => &$banner) {
+                $banner['order'] = $index;
+            }
+            unset($banner);
+        }
+        
+        return array_values($banners);
     }
 
     /**
@@ -76,13 +116,27 @@ class BannerManager
         // Use provided ID or generate unique ID
         $banner_id = isset($banner_data['id']) ? $banner_data['id'] : 'banner_' . uniqid();
         
+        // Get group for this banner
+        $group = isset($banner_data['group']) ? sanitize_text_field($banner_data['group']) : 'default';
+        
+        // Calculate correct order - count banners in same group
+        $group_count = 0;
+        foreach ($banners as $banner) {
+            $banner_group = isset($banner['group']) ? $banner['group'] : 'default';
+            if ($banner_group === $group) {
+                $group_count++;
+            }
+        }
+        $new_order = $group_count;
+        
         // Validate and sanitize banner data
         $banner = array(
             'id' => $banner_id,
+            'group' => $group,
             'image_id' => isset($banner_data['image_id']) ? (int)$banner_data['image_id'] : 0,
             'image_url' => isset($banner_data['image_url']) ? sanitize_url($banner_data['image_url']) : '',
             'deeplink' => isset($banner_data['deeplink']) ? sanitize_text_field($banner_data['deeplink']) : '',
-            'order' => isset($banner_data['order']) ? (int)$banner_data['order'] : count($banners),
+            'order' => isset($banner_data['order']) ? (int)$banner_data['order'] : $new_order,
             'created_at' => current_time('mysql'),
             'updated_at' => current_time('mysql'),
         );
@@ -128,6 +182,9 @@ class BannerManager
                 }
                 if (isset($banner_data['deeplink'])) {
                     $banner['deeplink'] = sanitize_text_field($banner_data['deeplink']);
+                }
+                if (isset($banner_data['group'])) {
+                    $banner['group'] = sanitize_text_field($banner_data['group']);
                 }
                 if (isset($banner_data['order'])) {
                     $banner['order'] = (int)$banner_data['order'];
@@ -243,5 +300,154 @@ class BannerManager
         // Also allow http and https URLs
         return preg_match('/^([a-z][a-z0-9+\-.]*:)?\/\//i', $deeplink) || 
                preg_match('/^[a-z][a-z0-9+\-.]*:\/\//i', $deeplink);
+    }
+
+    // ============================================
+    // Banner Group Management Methods
+    // ============================================
+
+    /**
+     * Get all banner groups
+     * 
+     * @return array Array of group names
+     */
+    public static function get_groups()
+    {
+        $groups = get_option(self::OPTION_BANNER_GROUPS, array());
+        
+        // Ensure groups is an array
+        if (!is_array($groups)) {
+            return array('default');
+        }
+        
+        // Always include default group
+        if (!in_array('default', $groups)) {
+            $groups[] = 'default';
+        }
+        
+        return array_unique($groups);
+    }
+
+    /**
+     * Add a new banner group
+     * 
+     * @param string $group_name Group name
+     * @return bool True on success, false on failure
+     */
+    public static function add_group($group_name)
+    {
+        $group_name = sanitize_text_field($group_name);
+        
+        // Validate group name
+        if (empty($group_name)) {
+            return false;
+        }
+        
+        $groups = self::get_groups();
+        
+        // Group already exists
+        if (in_array($group_name, $groups)) {
+            return false;
+        }
+        
+        $groups[] = $group_name;
+        
+        return update_option(self::OPTION_BANNER_GROUPS, $groups);
+    }
+
+    /**
+     * Delete a banner group and all its banners
+     * 
+     * @param string $group_name Group name
+     * @return bool True on success, false on failure
+     */
+    public static function delete_group($group_name)
+    {
+        // Don't allow deleting default group
+        if ($group_name === 'default') {
+            return false;
+        }
+        
+        $group_name = sanitize_text_field($group_name);
+        
+        // Delete all banners in this group
+        $banners = self::get_banners();
+        foreach ($banners as $banner) {
+            $banner_group = isset($banner['group']) ? $banner['group'] : 'default';
+            if ($banner_group === $group_name) {
+                self::delete_banner($banner['id']);
+            }
+        }
+        
+        // Remove from groups list
+        $groups = self::get_groups();
+        $groups = array_filter($groups, function($g) use ($group_name) {
+            return $g !== $group_name;
+        });
+        
+        return update_option(self::OPTION_BANNER_GROUPS, array_values($groups));
+    }
+
+    /**
+     * Rename a banner group
+     * 
+     * @param string $old_name Old group name
+     * @param string $new_name New group name
+     * @return bool True on success, false on failure
+     */
+    public static function rename_group($old_name, $new_name)
+    {
+        // Don't allow renaming default group
+        if ($old_name === 'default') {
+            return false;
+        }
+        
+        $old_name = sanitize_text_field($old_name);
+        $new_name = sanitize_text_field($new_name);
+        
+        if (empty($new_name)) {
+            return false;
+        }
+        
+        $groups = self::get_groups();
+        
+        // Check if old group exists
+        if (!in_array($old_name, $groups)) {
+            return false;
+        }
+        
+        // Check if new name already exists
+        if (in_array($new_name, $groups)) {
+            return false;
+        }
+        
+        // Update group name in list
+        $groups = array_map(function($g) use ($old_name, $new_name) {
+            return $g === $old_name ? $new_name : $g;
+        }, $groups);
+        
+        // Update all banners in this group
+        $banners = self::get_banners();
+        foreach ($banners as &$banner) {
+            $banner_group = isset($banner['group']) ? $banner['group'] : 'default';
+            if ($banner_group === $old_name) {
+                $banner['group'] = $new_name;
+            }
+        }
+        
+        update_option(Constants::OPTION_APP_BANNERS, $banners);
+        
+        return update_option(self::OPTION_BANNER_GROUPS, $groups);
+    }
+
+    /**
+     * Check if a group exists
+     * 
+     * @param string $group_name Group name
+     * @return bool True if group exists, false otherwise
+     */
+    public static function group_exists($group_name)
+    {
+        return in_array($group_name, self::get_groups());
     }
 }

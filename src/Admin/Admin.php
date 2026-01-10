@@ -34,6 +34,9 @@ class Admin extends AbstractService
         add_action('wp_ajax_wooapp_upload_banner', array($this, 'handleBannerUpload'));
         add_action('wp_ajax_wooapp_reorder_banners', array($this, 'handleBannerReorder'));
         add_action('wp_ajax_wooapp_save_banner_data', array($this, 'handleSaveBannerData'));
+        add_action('wp_ajax_wooapp_create_banner_group', array($this, 'handleCreateBannerGroup'));
+        add_action('wp_ajax_wooapp_delete_banner_group', array($this, 'handleDeleteBannerGroup'));
+        add_action('wp_ajax_wooapp_get_banner_groups', array($this, 'handleGetBannerGroups'));
     }
 
     /**
@@ -108,7 +111,7 @@ class Admin extends AbstractService
             'wooapp-app-banners',
             $plugin_url . '/assets/css/app-banners.css',
             array(),
-            Constants::PLUGIN_VERSION
+            Constants::PLUGIN_VERSION . '.' . time()
         );
 
         // Enqueue JavaScript
@@ -147,6 +150,7 @@ class Admin extends AbstractService
                 'deleteNonce' => wp_create_nonce('wooapp_delete_banner'),
                 'uploadNonce' => wp_create_nonce('wooapp_upload_banner'),
                 'reorderNonce' => wp_create_nonce('wooapp_reorder_banners'),
+                'bannersNonce' => wp_create_nonce('wooapp_banners_nonce'),
                 'adminPostUrl' => admin_url('admin-post.php'),
                 'ajaxUrl' => admin_url('admin-ajax.php'),
             )
@@ -478,7 +482,9 @@ class Admin extends AbstractService
             wp_die(__('You do not have sufficient permissions to manage this option.', WOOAPP_TEXT_DOMAIN));
         }
 
-        $banners = BannerManager::get_banners();
+        $groups = BannerManager::get_groups();
+        $current_group = isset($_GET['group']) ? sanitize_key($_GET['group']) : (isset($groups[0]) ? $groups[0] : 'default');
+        $banners = BannerManager::get_banners($current_group);
         ?>
         <div class="wrap">
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
@@ -489,26 +495,61 @@ class Admin extends AbstractService
                 </div>
             <?php endif; ?>
 
-            <div id="wooapp-banners-container" class="wooapp-banners-container">
-                <div class="wooapp-banner-actions">
-                    <button id="wooapp-add-banner" class="button button-primary">
-                        <?php esc_html_e('+ Add Banner', WOOAPP_TEXT_DOMAIN); ?>
-                    </button>
-                    <p class="description">
-                        <?php esc_html_e('Upload banner images for your app. You can drag to reorder them.', WOOAPP_TEXT_DOMAIN); ?>
-                    </p>
+            <div id="wooapp-banners-container" class="wooapp-banners-container wooapp-layout-horizontal">
+                <!-- Group Management Section (Left) -->
+                <div class="wooapp-group-section">
+                    <h2><?php esc_html_e('Banner Groups', WOOAPP_TEXT_DOMAIN); ?></h2>
+                    
+                    <div class="wooapp-group-actions">
+                        <input type="text" 
+                               id="wooapp-new-group-name" 
+                               class="wooapp-input"
+                               placeholder="<?php esc_attr_e('Enter group name (e.g., home, category, product)', WOOAPP_TEXT_DOMAIN); ?>">
+                        <button id="wooapp-create-group" class="button button-primary">
+                            <?php esc_html_e('+ Create Group', WOOAPP_TEXT_DOMAIN); ?>
+                        </button>
+                    </div>
+
+                    <div id="wooapp-groups-list" class="wooapp-groups-list">
+                        <?php foreach ($groups as $group) : ?>
+                            <div class="wooapp-group-item" data-group="<?php echo esc_attr($group); ?>" data-group-url="<?php echo esc_url(add_query_arg('group', $group)); ?>">
+                                <span class="wooapp-group-name <?php echo $current_group === $group ? 'active' : ''; ?>">
+                                    <?php echo esc_html($group); ?>
+                                </span>
+                                <?php if ($group !== 'default') : ?>
+                                    <button type="button" class="button button-link-delete wooapp-delete-group" data-group="<?php echo esc_attr($group); ?>">
+                                        <?php esc_html_e('Delete', WOOAPP_TEXT_DOMAIN); ?>
+                                    </button>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
 
-                <div id="wooapp-banners-list" class="wooapp-banners-list">
-                    <?php if (!empty($banners)) : ?>
-                        <?php foreach ($banners as $banner) : ?>
-                            <?php $this->render_banner_item($banner); ?>
-                        <?php endforeach; ?>
-                    <?php else : ?>
-                        <p class="wooapp-no-banners">
-                            <?php esc_html_e('No banners yet. Click "Add Banner" to create one.', WOOAPP_TEXT_DOMAIN); ?>
+                <!-- Banner Management Section (Right) -->
+                <div class="wooapp-banner-section">
+                    <h2><?php esc_html_e('Banners for "' . esc_html($current_group) . '" Group', WOOAPP_TEXT_DOMAIN); ?></h2>
+
+                    <div class="wooapp-banner-actions">
+                        <button id="wooapp-add-banner" class="button button-primary" data-group="<?php echo esc_attr($current_group); ?>">
+                            <?php esc_html_e('+ Add Banner to this Group', WOOAPP_TEXT_DOMAIN); ?>
+                        </button>
+                        <p class="description">
+                            <?php esc_html_e('Upload banner images for this group. You can drag to reorder them.', WOOAPP_TEXT_DOMAIN); ?>
                         </p>
-                    <?php endif; ?>
+                    </div>
+
+                    <div id="wooapp-banners-list" class="wooapp-banners-list" data-group="<?php echo esc_attr($current_group); ?>">
+                        <?php if (!empty($banners)) : ?>
+                            <?php foreach ($banners as $banner) : ?>
+                                <?php $this->render_banner_item($banner); ?>
+                            <?php endforeach; ?>
+                        <?php else : ?>
+                            <p class="wooapp-no-banners">
+                                <?php esc_html_e('No banners in this group yet. Click "Add Banner to this Group" to create one.', WOOAPP_TEXT_DOMAIN); ?>
+                            </p>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </div>
@@ -526,9 +567,10 @@ class Admin extends AbstractService
         $image_url = isset($banner['image_url']) ? $banner['image_url'] : '';
         $image_id = isset($banner['image_id']) ? $banner['image_id'] : 0;
         $deeplink = isset($banner['deeplink']) ? $banner['deeplink'] : '';
+        $group = isset($banner['group']) ? $banner['group'] : 'default';
         
         ?>
-        <div class="wooapp-banner-item" data-banner-id="<?php echo esc_attr($banner_id); ?>">
+        <div class="wooapp-banner-item" data-banner-id="<?php echo esc_attr($banner_id); ?>" data-group="<?php echo esc_attr($group); ?>">
             <div class="wooapp-banner-handle">
                 <span class="dashicons dashicons-menu"></span>
             </div>
@@ -790,6 +832,10 @@ class Admin extends AbstractService
         if (isset($_POST['deeplink'])) {
             $update_data['deeplink'] = sanitize_text_field($_POST['deeplink']);
         }
+        
+        if (isset($_POST['group'])) {
+            $update_data['group'] = sanitize_text_field($_POST['group']);
+        }
 
         // Check if banner exists, if not create it
         $existing_banner = BannerManager::get_banner($banner_id);
@@ -812,6 +858,83 @@ class Admin extends AbstractService
                 wp_send_json_error(array('message' => __('Failed to create banner.', WOOAPP_TEXT_DOMAIN)));
             }
         }
+    }
+
+    /**
+     * Handle creating a banner group via AJAX
+     */
+    public function handleCreateBannerGroup()
+    {
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('You do not have permission.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'wooapp_banners_nonce')) {
+            wp_send_json_error(array('message' => __('Security check failed.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        $group_name = isset($_POST['group_name']) ? sanitize_text_field($_POST['group_name']) : '';
+        
+        if (empty($group_name)) {
+            wp_send_json_error(array('message' => __('Group name is required.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        if (BannerManager::add_group($group_name)) {
+            wp_send_json_success(array(
+                'message' => __('Group created successfully.', WOOAPP_TEXT_DOMAIN),
+                'group' => $group_name,
+            ));
+        } else {
+            wp_send_json_error(array('message' => __('Failed to create group. Group may already exist.', WOOAPP_TEXT_DOMAIN)));
+        }
+    }
+
+    /**
+     * Handle deleting a banner group via AJAX
+     */
+    public function handleDeleteBannerGroup()
+    {
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('You do not have permission.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'wooapp_banners_nonce')) {
+            wp_send_json_error(array('message' => __('Security check failed.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        $group_name = isset($_POST['group_name']) ? sanitize_text_field($_POST['group_name']) : '';
+        
+        if (empty($group_name)) {
+            wp_send_json_error(array('message' => __('Group name is required.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        if ($group_name === 'default') {
+            wp_send_json_error(array('message' => __('Cannot delete default group.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        if (BannerManager::delete_group($group_name)) {
+            wp_send_json_success(array('message' => __('Group deleted successfully.', WOOAPP_TEXT_DOMAIN)));
+        } else {
+            wp_send_json_error(array('message' => __('Failed to delete group.', WOOAPP_TEXT_DOMAIN)));
+        }
+    }
+
+    /**
+     * Handle getting banner groups via AJAX
+     */
+    public function handleGetBannerGroups()
+    {
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('You do not have permission.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        $groups = BannerManager::get_groups();
+        wp_send_json_success(array('groups' => $groups));
     }
 }
 
