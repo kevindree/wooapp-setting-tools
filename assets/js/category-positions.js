@@ -14,6 +14,7 @@
             this.$createPositionBtn = document.getElementById('wooapp-create-position');
             this.$positionKeyInput = document.getElementById('wooapp-new-position-key');
             this.$positionLabelInput = document.getElementById('wooapp-new-position-label');
+            this.$deleteNonce = document.getElementById('wooapp-delete-nonce');
         },
 
         bindEvents: function() {
@@ -84,9 +85,9 @@
                 return;
             }
 
-            // Validate key format (lowercase, numbers, underscores)
-            if (!/^[a-z0-9_]+$/.test(key)) {
-                alert('Position key can only contain lowercase letters, numbers, and underscores');
+            // Validate key format (lowercase, numbers, underscores, hyphens)
+            if (!/^[a-z0-9_-]+$/.test(key)) {
+                alert('Position key can only contain lowercase letters, numbers, underscores, and hyphens');
                 return;
             }
 
@@ -159,13 +160,20 @@
             keyInput.value = positionKey;
             form.appendChild(keyInput);
 
-            var existingNonce = document.querySelector('input[name="_wpnonce"]');
-            if (existingNonce) {
+            // Use the cached delete-specific nonce
+            if (this.$deleteNonce) {
                 var nonceInput = document.createElement('input');
                 nonceInput.type = 'hidden';
                 nonceInput.name = '_wpnonce';
-                nonceInput.value = existingNonce.value;
+                nonceInput.value = this.$deleteNonce.value;
                 form.appendChild(nonceInput);
+                console.log('Delete form data:', {
+                    action: 'wooapp_delete_position',
+                    position_key: positionKey,
+                    nonce: this.$deleteNonce.value
+                });
+            } else {
+                console.error('Delete nonce element not found!');
             }
 
             document.body.appendChild(form);

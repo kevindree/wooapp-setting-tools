@@ -215,6 +215,9 @@ class Admin extends AbstractService
             <?php endif; ?>
 
             <div id="wooapp-positions-container" class="wooapp-positions-container wooapp-layout-horizontal">
+                <!-- Hidden nonce for delete operations -->
+                <input type="hidden" id="wooapp-delete-nonce" value="<?php echo esc_attr(wp_create_nonce('wooapp_delete_position')); ?>">
+                
                 <!-- Position Management Section (Left) -->
                 <div class="wooapp-position-section">
                     <h2><?php esc_html_e('Positions', WOOAPP_TEXT_DOMAIN); ?></h2>
@@ -224,7 +227,7 @@ class Admin extends AbstractService
                                id="wooapp-new-position-key" 
                                class="wooapp-input"
                                placeholder="<?php esc_attr_e('Position Key (e.g., banner, featured)', WOOAPP_TEXT_DOMAIN); ?>"
-                               title="<?php esc_attr_e('Position Key: Used internally for API calls. Must be lowercase, no spaces.', WOOAPP_TEXT_DOMAIN); ?>">
+                               title="<?php esc_attr_e('Position Key: Used internally for API calls. Must be lowercase, numbers, underscores, and hyphens only.', WOOAPP_TEXT_DOMAIN); ?>">
                         <input type="text" 
                                id="wooapp-new-position-label" 
                                class="wooapp-input"
@@ -374,7 +377,8 @@ class Admin extends AbstractService
         }
 
         // Verify nonce
-        if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'wooapp_delete_position')) {
+        $nonce = isset($_POST['_wpnonce']) ? sanitize_text_field($_POST['_wpnonce']) : '';
+        if (!$nonce || !wp_verify_nonce($nonce, 'wooapp_delete_position')) {
             wp_die(__('Security check failed.', WOOAPP_TEXT_DOMAIN));
         }
 
