@@ -60,8 +60,11 @@
                     return;
                 }
                 var url = $(this).data('group-url');
+                console.log('Group item clicked, URL:', url);
                 if (url) {
                     window.location.href = url;
+                } else {
+                    console.error('No group URL found!');
                 }
             });
 
@@ -155,15 +158,21 @@
                 },
                 success: function(response) {
                     if (response.success) {
+                        // Use the group name returned from server (normalized)
+                        var normalizedGroupName = response.data.group || groupName;
+                        
+                        // Generate the proper URL
+                        var groupUrl = '?page=wooapp-app-banners&group=' + encodeURIComponent(normalizedGroupName);
+                        
                         // Add group to list
                         var groupHtml = `
-                            <div class="wooapp-group-item" data-group="${groupName}">
+                            <div class="wooapp-group-item" data-group="${normalizedGroupName}" data-group-url="${groupUrl}">
                                 <span class="wooapp-group-name">
-                                    <a href="?page=wooapp-app-banners&group=${groupName}" class="wooapp-group-link">
-                                        ${groupName}
+                                    <a href="${groupUrl}" class="wooapp-group-link">
+                                        ${normalizedGroupName}
                                     </a>
                                 </span>
-                                <button type="button" class="button button-link-delete wooapp-delete-group" data-group="${groupName}">
+                                <button type="button" class="button button-link-delete wooapp-delete-group" data-group="${normalizedGroupName}">
                                     Delete
                                 </button>
                             </div>
