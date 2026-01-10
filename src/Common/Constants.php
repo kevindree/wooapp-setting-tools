@@ -51,6 +51,7 @@ class Constants
     const OPTION_CATEGORY_GROUPS = 'wooapp_category_groups';
     const OPTION_CATEGORY_POSITIONS = 'wooapp_category_positions';
     const OPTION_CATEGORY_POSITION_MAPPING = 'wooapp_category_position_mapping';
+    const OPTION_APP_BANNERS = 'wooapp_app_banners';
 
     /**
      * Meta keys

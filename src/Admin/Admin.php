@@ -8,6 +8,7 @@ namespace WooApp\Admin;
 
 use WooApp\Core\AbstractService;
 use WooApp\Services\CategoryPositionManager;
+use WooApp\Services\BannerManager;
 use WooApp\Common\Constants;
 
 defined('ABSPATH') || exit;
@@ -28,6 +29,11 @@ class Admin extends AbstractService
         add_action('admin_enqueue_scripts', array($this, 'enqueueAssets'));
         add_action('admin_post_wooapp_save_category_positions', array($this, 'handleSaveCategoryPositions'));
         add_action('admin_post_wooapp_delete_position', array($this, 'handleDeletePosition'));
+        add_action('admin_post_wooapp_save_banners', array($this, 'handleSaveBanners'));
+        add_action('wp_ajax_wooapp_delete_banner', array($this, 'handleDeleteBanner'));
+        add_action('wp_ajax_wooapp_upload_banner', array($this, 'handleBannerUpload'));
+        add_action('wp_ajax_wooapp_reorder_banners', array($this, 'handleBannerReorder'));
+        add_action('wp_ajax_wooapp_save_banner_data', array($this, 'handleSaveBannerData'));
     }
 
     /**
@@ -54,6 +60,16 @@ class Admin extends AbstractService
             'wooapp-category-positions',
             array($this, 'renderCategoryPositionsPage')
         );
+
+        // Add submenu for app banners
+        add_submenu_page(
+            'wooapp-settings',
+            __('App Banners', WOOAPP_TEXT_DOMAIN),
+            __('App Banners', WOOAPP_TEXT_DOMAIN),
+            'manage_options',
+            'wooapp-app-banners',
+            array($this, 'renderBannersPage')
+        );
     }
 
     /**
@@ -69,8 +85,9 @@ class Admin extends AbstractService
      */
     public function enqueueAssets($hook_suffix)
     {
-        // Only enqueue on our category positions page
-        if ($hook_suffix !== 'wooapp-settings_page_wooapp-category-positions') {
+        // Only enqueue on our specific pages
+        if ($hook_suffix !== 'wooapp-settings_page_wooapp-category-positions' && 
+            $hook_suffix !== 'wooapp-settings_page_wooapp-app-banners') {
             return;
         }
 
@@ -86,6 +103,14 @@ class Admin extends AbstractService
             Constants::PLUGIN_VERSION
         );
 
+        // Enqueue banner CSS
+        wp_enqueue_style(
+            'wooapp-app-banners',
+            $plugin_url . '/assets/css/app-banners.css',
+            array(),
+            Constants::PLUGIN_VERSION
+        );
+
         // Enqueue JavaScript
         wp_enqueue_script(
             'wooapp-category-positions',
@@ -95,6 +120,15 @@ class Admin extends AbstractService
             true
         );
         
+        // Enqueue banner JavaScript
+        wp_enqueue_script(
+            'wooapp-app-banners',
+            $plugin_url . '/assets/js/app-banners.js',
+            array('jquery', 'jquery-ui-sortable'),
+            Constants::PLUGIN_VERSION,
+            true
+        );
+
         // Localize script with nonce and admin URL
         wp_localize_script(
             'wooapp-category-positions',
@@ -104,6 +138,22 @@ class Admin extends AbstractService
                 'adminPostUrl' => admin_url('admin-post.php'),
             )
         );
+
+        // Localize banner script
+        wp_localize_script(
+            'wooapp-app-banners',
+            'wooappBanners',
+            array(
+                'deleteNonce' => wp_create_nonce('wooapp_delete_banner'),
+                'uploadNonce' => wp_create_nonce('wooapp_upload_banner'),
+                'reorderNonce' => wp_create_nonce('wooapp_reorder_banners'),
+                'adminPostUrl' => admin_url('admin-post.php'),
+                'ajaxUrl' => admin_url('admin-ajax.php'),
+            )
+        );
+
+        // Enqueue media library scripts
+        wp_enqueue_media();
     }
 
     /**
@@ -415,6 +465,352 @@ class Admin extends AbstractService
             echo '<option value="' . esc_attr($cat_id) . '" ' . $is_selected . ' ' . $data_attrs . ' class="wooapp-category-option' . ($has_children ? ' wooapp-parent' : '') . ' wooapp-depth-' . esc_attr($depth) . '">';
             echo $indent . $option_text;
             echo "</option>\n";
+        }
+    }
+
+    /**
+     * Render app banners configuration page
+     */
+    public function renderBannersPage()
+    {
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to manage this option.', WOOAPP_TEXT_DOMAIN));
+        }
+
+        $banners = BannerManager::get_banners();
+        ?>
+        <div class="wrap">
+            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+
+            <?php if (isset($_GET['settings-updated'])) : ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php esc_html_e('Settings saved successfully.', WOOAPP_TEXT_DOMAIN); ?></p>
+                </div>
+            <?php endif; ?>
+
+            <div id="wooapp-banners-container" class="wooapp-banners-container">
+                <div class="wooapp-banner-actions">
+                    <button id="wooapp-add-banner" class="button button-primary">
+                        <?php esc_html_e('+ Add Banner', WOOAPP_TEXT_DOMAIN); ?>
+                    </button>
+                    <p class="description">
+                        <?php esc_html_e('Upload banner images for your app. You can drag to reorder them.', WOOAPP_TEXT_DOMAIN); ?>
+                    </p>
+                </div>
+
+                <div id="wooapp-banners-list" class="wooapp-banners-list">
+                    <?php if (!empty($banners)) : ?>
+                        <?php foreach ($banners as $banner) : ?>
+                            <?php $this->render_banner_item($banner); ?>
+                        <?php endforeach; ?>
+                    <?php else : ?>
+                        <p class="wooapp-no-banners">
+                            <?php esc_html_e('No banners yet. Click "Add Banner" to create one.', WOOAPP_TEXT_DOMAIN); ?>
+                        </p>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * Render a single banner item
+     *
+     * @param array $banner Banner data
+     */
+    private function render_banner_item($banner)
+    {
+        $banner_id = isset($banner['id']) ? $banner['id'] : '';
+        $image_url = isset($banner['image_url']) ? $banner['image_url'] : '';
+        $image_id = isset($banner['image_id']) ? $banner['image_id'] : 0;
+        $deeplink = isset($banner['deeplink']) ? $banner['deeplink'] : '';
+        
+        ?>
+        <div class="wooapp-banner-item" data-banner-id="<?php echo esc_attr($banner_id); ?>">
+            <div class="wooapp-banner-handle">
+                <span class="dashicons dashicons-menu"></span>
+            </div>
+
+            <div class="wooapp-banner-preview">
+                <?php if (!empty($image_url)) : ?>
+                    <img src="<?php echo esc_url($image_url); ?>" alt="Banner" class="wooapp-banner-image-preview">
+                <?php else : ?>
+                    <div class="wooapp-banner-placeholder">
+                        <?php esc_html_e('No image selected', WOOAPP_TEXT_DOMAIN); ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <div class="wooapp-banner-content">
+                <div class="wooapp-banner-field">
+                    <label><?php esc_html_e('Banner Image', WOOAPP_TEXT_DOMAIN); ?></label>
+                    <div class="wooapp-image-upload">
+                        <input type="hidden" 
+                               class="wooapp-banner-image-id" 
+                               value="<?php echo esc_attr($image_id); ?>" 
+                               data-banner-id="<?php echo esc_attr($banner_id); ?>">
+                        <input type="hidden" 
+                               class="wooapp-banner-image-url" 
+                               value="<?php echo esc_attr($image_url); ?>" 
+                               data-banner-id="<?php echo esc_attr($banner_id); ?>">
+                        <button type="button" class="button wooapp-upload-image" data-banner-id="<?php echo esc_attr($banner_id); ?>">
+                            <?php esc_html_e('Upload Image', WOOAPP_TEXT_DOMAIN); ?>
+                        </button>
+                        <?php if (!empty($image_id)) : ?>
+                            <button type="button" class="button wooapp-remove-image" data-banner-id="<?php echo esc_attr($banner_id); ?>" style="margin-left: 5px;">
+                                <?php esc_html_e('Remove', WOOAPP_TEXT_DOMAIN); ?>
+                            </button>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <div class="wooapp-banner-field">
+                    <label><?php esc_html_e('Deeplink (Optional)', WOOAPP_TEXT_DOMAIN); ?></label>
+                    <input type="text" 
+                           class="wooapp-banner-deeplink" 
+                           value="<?php echo esc_attr($deeplink); ?>" 
+                           placeholder="<?php esc_attr_e('e.g., wooapp://product/123 or https://example.com', WOOAPP_TEXT_DOMAIN); ?>"
+                           data-banner-id="<?php echo esc_attr($banner_id); ?>">
+                    <p class="description">
+                        <?php esc_html_e('Users will be redirected to this URL when clicking the banner.', WOOAPP_TEXT_DOMAIN); ?>
+                    </p>
+                </div>
+
+                <div class="wooapp-banner-actions-item">
+                    <button type="button" class="button button-link-delete wooapp-delete-banner" data-banner-id="<?php echo esc_attr($banner_id); ?>">
+                        <?php esc_html_e('Delete', WOOAPP_TEXT_DOMAIN); ?>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+
+    /**
+     * Handle banner upload via AJAX
+     */
+    public function handleBannerUpload()
+    {
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('You do not have permission to upload banners.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'wooapp_upload_banner')) {
+            wp_send_json_error(array('message' => __('Security check failed.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        // Check if files were uploaded
+        if (empty($_FILES['file'])) {
+            wp_send_json_error(array('message' => __('No file provided.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        // Handle file upload
+        $upload = wp_handle_upload(
+            $_FILES['file'],
+            array('test_form' => false)
+        );
+
+        if (isset($upload['error'])) {
+            wp_send_json_error(array('message' => $upload['error']));
+        }
+
+        // Create attachment
+        $attachment_id = wp_insert_attachment(
+            array(
+                'guid' => $upload['url'],
+                'post_mime_type' => $upload['type'],
+                'post_title' => sanitize_file_name($_FILES['file']['name']),
+                'post_content' => '',
+                'post_status' => 'inherit',
+            ),
+            $upload['file']
+        );
+
+        if (is_wp_error($attachment_id)) {
+            wp_send_json_error(array('message' => $attachment_id->get_error_message()));
+        }
+
+        // Generate attachment metadata
+        require_once ABSPATH . 'wp-admin/includes/image.php';
+        $attach_data = wp_generate_attachment_metadata($attachment_id, $upload['file']);
+        wp_update_attachment_metadata($attachment_id, $attach_data);
+
+        wp_send_json_success(array(
+            'id' => $attachment_id,
+            'url' => $upload['url'],
+        ));
+    }
+
+    /**
+     * Handle banner reorder via AJAX
+     */
+    public function handleBannerReorder()
+    {
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('You do not have permission to reorder banners.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'wooapp_reorder_banners')) {
+            wp_send_json_error(array('message' => __('Security check failed.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        // Get banner IDs
+        $banner_ids = isset($_POST['banner_ids']) ? (array) $_POST['banner_ids'] : array();
+        
+        if (empty($banner_ids)) {
+            wp_send_json_error(array('message' => __('No banners provided.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        // Sanitize banner IDs
+        $banner_ids = array_map('sanitize_key', $banner_ids);
+
+        // Update order
+        if (BannerManager::reorder_banners($banner_ids)) {
+            wp_send_json_success(array('message' => __('Banners reordered successfully.', WOOAPP_TEXT_DOMAIN)));
+        } else {
+            wp_send_json_error(array('message' => __('Failed to reorder banners.', WOOAPP_TEXT_DOMAIN)));
+        }
+    }
+
+    /**
+     * Handle saving banners
+     */
+    public function handleSaveBanners()
+    {
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to manage this option.', WOOAPP_TEXT_DOMAIN));
+        }
+
+        // Verify nonce
+        if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'wooapp_save_banners')) {
+            wp_die(__('Security check failed.', WOOAPP_TEXT_DOMAIN));
+        }
+
+        // Get all banners
+        $banners = BannerManager::get_banners();
+        
+        // Update deeplinks and images based on POST data
+        if (isset($_POST['banners']) && is_array($_POST['banners'])) {
+            foreach ($_POST['banners'] as $banner_id => $banner_data) {
+                $banner_id = sanitize_key($banner_id);
+                
+                $update_data = array();
+                
+                if (isset($banner_data['deeplink'])) {
+                    $update_data['deeplink'] = sanitize_text_field($banner_data['deeplink']);
+                }
+                
+                if (isset($banner_data['image_id'])) {
+                    $update_data['image_id'] = (int) $banner_data['image_id'];
+                }
+                
+                if (isset($banner_data['image_url'])) {
+                    $update_data['image_url'] = sanitize_url($banner_data['image_url']);
+                }
+                
+                if (!empty($update_data)) {
+                    BannerManager::update_banner($banner_id, $update_data);
+                }
+            }
+        }
+
+        wp_redirect(add_query_arg('settings-updated', 'true', admin_url('admin.php?page=wooapp-app-banners')));
+        exit;
+    }
+
+    /**
+     * Handle deleting a banner
+     */
+    public function handleDeleteBanner()
+    {
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to manage this option.', WOOAPP_TEXT_DOMAIN));
+        }
+
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'wooapp_delete_banner')) {
+            wp_die(__('Security check failed.', WOOAPP_TEXT_DOMAIN));
+        }
+
+        // Get and validate banner ID
+        $banner_id = isset($_POST['banner_id']) ? sanitize_key($_POST['banner_id']) : '';
+
+        if (empty($banner_id)) {
+            wp_send_json_error(array('message' => __('No banner ID provided.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        // Delete the banner
+        if (BannerManager::delete_banner($banner_id)) {
+            wp_send_json_success(array('message' => __('Banner deleted successfully.', WOOAPP_TEXT_DOMAIN)));
+        } else {
+            wp_send_json_error(array('message' => __('Failed to delete banner.', WOOAPP_TEXT_DOMAIN)));
+        }
+    }
+
+    /**
+     * Handle saving banner data via AJAX
+     */
+    public function handleSaveBannerData()
+    {
+        // Check user permissions
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('You do not have permission.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        // Verify nonce
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'wooapp_upload_banner')) {
+            wp_send_json_error(array('message' => __('Security check failed.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        $banner_id = isset($_POST['banner_id']) ? sanitize_key($_POST['banner_id']) : '';
+        
+        if (empty($banner_id)) {
+            wp_send_json_error(array('message' => __('No banner ID provided.', WOOAPP_TEXT_DOMAIN)));
+        }
+
+        // Prepare update data
+        $update_data = array();
+        
+        if (isset($_POST['image_id'])) {
+            $update_data['image_id'] = (int) $_POST['image_id'];
+        }
+        
+        if (isset($_POST['image_url'])) {
+            $update_data['image_url'] = sanitize_url($_POST['image_url']);
+        }
+        
+        if (isset($_POST['deeplink'])) {
+            $update_data['deeplink'] = sanitize_text_field($_POST['deeplink']);
+        }
+
+        // Check if banner exists, if not create it
+        $existing_banner = BannerManager::get_banner($banner_id);
+        
+        if ($existing_banner) {
+            // Update existing banner
+            if (BannerManager::update_banner($banner_id, $update_data)) {
+                wp_send_json_success(array('message' => __('Banner updated successfully.', WOOAPP_TEXT_DOMAIN)));
+            } else {
+                wp_send_json_error(array('message' => __('Failed to update banner.', WOOAPP_TEXT_DOMAIN)));
+            }
+        } else {
+            // Create new banner
+            $update_data['id'] = $banner_id;
+            $result = BannerManager::add_banner($update_data);
+            
+            if ($result) {
+                wp_send_json_success(array('message' => __('Banner created successfully.', WOOAPP_TEXT_DOMAIN)));
+            } else {
+                wp_send_json_error(array('message' => __('Failed to create banner.', WOOAPP_TEXT_DOMAIN)));
+            }
         }
     }
 }

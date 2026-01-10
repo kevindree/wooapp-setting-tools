@@ -29,12 +29,18 @@ class REST extends AbstractService
     private $app_position_endpoints;
 
     /**
+     * App banners endpoints instance
+     */
+    private $app_banners_endpoints;
+
+    /**
      * Boot service
      */
     public function boot()
     {
         $this->user_auth_endpoints = new UserAuthEndpoints();
         $this->app_position_endpoints = new AppPositionEndpoints();
+        $this->app_banners_endpoints = new AppBannersEndpoints();
         parent::boot();
     }
 
@@ -56,5 +62,8 @@ class REST extends AbstractService
 
         // Register app position endpoints
         $this->app_position_endpoints->register_route();
+
+        // Register app banners endpoints
+        $this->app_banners_endpoints->register_routes();
     }
 }

@@ -1,0 +1,230 @@
+/* WooApp App Banners Styles */
+
+.wooapp-banners-container {
+    margin: 20px 0;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.wooapp-banner-actions {
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.wooapp-banner-actions button {
+    cursor: pointer;
+}
+
+.wooapp-banners-list {
+    padding: 20px;
+}
+
+.wooapp-banners-list.ui-sortable {
+    /* This class is added by jQuery Sortable */
+}
+
+.wooapp-no-banners {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+    font-style: italic;
+}
+
+.wooapp-banner-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: move;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.wooapp-banner-item:hover {
+    background-color: #f5f5f5;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.wooapp-banner-item.ui-sortable-helper {
+    background: #fff;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    opacity: 0.95;
+    border-color: #0073aa;
+}
+
+.wooapp-banner-item.ui-sortable-placeholder {
+    background: #f0f0f0;
+    border: 2px dashed #0073aa;
+    opacity: 0.5;
+    height: 120px;
+}
+
+.wooapp-banner-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    min-width: 24px;
+    height: 120px;
+    color: #999;
+    cursor: grab;
+}
+
+.wooapp-banner-handle:active {
+    cursor: grabbing;
+}
+
+.wooapp-banner-handle .dashicons {
+    width: 24px;
+    height: 24px;
+    font-size: 20px;
+}
+
+.wooapp-banner-preview {
+    flex: 0 0 auto;
+    width: 120px;
+    height: 120px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #fff;
+    border: 1px solid #ddd;
+}
+
+.wooapp-banner-image-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.wooapp-banner-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background: #f0f0f0;
+    color: #999;
+    text-align: center;
+    font-size: 12px;
+    padding: 10px;
+}
+
+.wooapp-banner-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.wooapp-banner-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.wooapp-banner-field label {
+    font-weight: 600;
+    font-size: 13px;
+    color: #333;
+}
+
+.wooapp-banner-field input,
+.wooapp-banner-field textarea {
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 13px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+}
+
+.wooapp-banner-field input:focus,
+.wooapp-banner-field textarea:focus {
+    outline: none;
+    border-color: #0073aa;
+    box-shadow: 0 0 0 2px rgba(0, 115, 170, 0.1);
+}
+
+.wooapp-banner-field .description {
+    font-size: 11px;
+    color: #999;
+    margin-top: 3px;
+}
+
+.wooapp-image-upload {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.wooapp-upload-image,
+.wooapp-remove-image {
+    font-size: 12px;
+    padding: 6px 12px;
+}
+
+.wooapp-banner-actions-item {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.wooapp-delete-banner {
+    color: #dc3545;
+    text-decoration: none;
+    padding: 0;
+    font-size: 12px;
+}
+
+.wooapp-delete-banner:hover {
+    color: #a01f28;
+    text-decoration: underline;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .wooapp-banner-item {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .wooapp-banner-handle {
+        width: 100%;
+        height: 24px;
+        margin-bottom: -15px;
+    }
+
+    .wooapp-banner-preview {
+        width: 100%;
+    }
+}
+
+/* Loading state */
+.wooapp-banner-item.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.wooapp-banner-item.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #0073aa;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
