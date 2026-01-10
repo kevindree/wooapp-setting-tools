@@ -6,23 +6,21 @@
     border: 1px solid #ccc;
     border-radius: 4px;
     background-color: #fff;
-    max-height: 300px;
-    overflow-y: auto;
+    min-height: 100px;
+    overflow: auto;
     padding: 0;
     margin: 0;
     width: 100%;
-    min-height: 100px;
     position: relative;
+    resize: vertical;
 }
 
 .wooapp-resize-handle {
-    position: fixed;
-    width: 20px;
-    height: 20px;
-    cursor: se-resize;
-    background: linear-gradient(135deg, transparent 50%, #999 50%);
-    pointer-events: auto;
-    z-index: 999;
+    display: none;
+}
+
+.wooapp-custom-select::after {
+    display: none;
 }
 
 .wooapp-custom-select .wooapp-option {

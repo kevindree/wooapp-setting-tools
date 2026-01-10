@@ -60,19 +60,6 @@
             customSelect.className = 'wooapp-custom-select';
             select.parentNode.insertBefore(customSelect, select);
             
-            // Create resize handle
-            const resizeHandle = document.createElement('div');
-            resizeHandle.className = 'wooapp-resize-handle';
-            document.body.appendChild(resizeHandle);
-            
-            // Update resize handle position
-            function updateHandlePosition() {
-                const rect = customSelect.getBoundingClientRect();
-                resizeHandle.style.bottom = (window.innerHeight - rect.bottom) + 'px';
-                resizeHandle.style.right = (window.innerWidth - rect.right) + 'px';
-                resizeHandle.style.display = rect.bottom > 0 && rect.right > 0 ? 'block' : 'none';
-            }
-            
             // Render options
             function renderOptions() {
                 customSelect.innerHTML = '';
@@ -118,16 +105,9 @@
                     
                     customSelect.appendChild(optDiv);
                 });
-                
-                // Update handle position after rendering
-                setTimeout(updateHandlePosition, 0);
             }
             
             renderOptions();
-            // Initial position update
-            setTimeout(updateHandlePosition, 0);
-            window.addEventListener('scroll', updateHandlePosition);
-            window.addEventListener('resize', updateHandlePosition);
             
             // Helper to toggle children visibility
             function toggleChildren(parentId, collapse) {
@@ -192,34 +172,7 @@
                 }
             });
             
-            // Drag to resize functionality
-            let isResizing = false;
-            let startY = 0;
-            let startHeight = 0;
-            
-            resizeHandle.addEventListener('mousedown', function(e) {
-                isResizing = true;
-                startY = e.clientY;
-                startHeight = customSelect.offsetHeight;
-                e.preventDefault();
-            });
-            
-            document.addEventListener('mousemove', function(e) {
-                if (!isResizing) return;
-                
-                const diff = e.clientY - startY;
-                const newHeight = startHeight + diff;
-                
-                if (newHeight >= 100) {
-                    customSelect.style.height = newHeight + 'px';
-                    customSelect.style.maxHeight = 'none';
-                    updateHandlePosition();
-                }
-            });
-            
-            document.addEventListener('mouseup', function() {
-                isResizing = false;
-            });
+            // Drag to resize functionality - REMOVED, using native CSS resize instead
             
             // Store reference to form and sync on submit
             const formElement = select.closest('form');

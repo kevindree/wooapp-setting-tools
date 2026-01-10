@@ -19,7 +19,7 @@ class Constants
     const PLUGIN_NAME = 'WooApp Setting Tools';
     const PLUGIN_DESCRIPTION = 'WooCommerce APP Support Tools';
     const PLUGIN_VERSION = '1.0.0';
-    const PLUGIN_AUTHOR = 'Geehotek';
+    const PLUGIN_AUTHOR = 'Geehootek';
     const PLUGIN_TEXT_DOMAIN = 'wooapp-setting-tools';
 
     /**
