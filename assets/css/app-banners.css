@@ -75,19 +75,15 @@
 }
 
 .wooapp-group-item.active {
-    background: #e7f3ff;
-    border-color: #0073aa;
+    background: #fffbf0;
+    border-color: #ffb900;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .wooapp-group-name {
     flex: 1;
     font-weight: 500;
     cursor: pointer;
-}
-
-.wooapp-group-name.active {
-    color: #005a87;
-    font-weight: 600;
 }
 
 .wooapp-group-item .button-link-delete {

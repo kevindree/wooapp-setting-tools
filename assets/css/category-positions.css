@@ -68,57 +68,125 @@
     cursor: pointer;
 }
 
-.wooapp-option-indent {
-    display: inline-block;
+.wooapp-positions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.wooapp-position-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 15px;
+    background: #f5f5f5;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.wooapp-position-item:hover {
+    background: #fffbf0;
+    border-color: #ffb900;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.wooapp-position-item.active {
+    background: #fffbf0;
+    border-color: #ffb900;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.wooapp-position-name {
+    flex: 1;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.wooapp-position-item .button-link-delete {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-left: 10px;
+}
+
+.wooapp-position-item:hover .button-link-delete {
+    opacity: 1;
 }
 
 .wooapp-container-layout {
     display: flex;
-    gap: 30px;
-    margin-top: 30px;
+    flex-direction: row;
+    margin-top: 20px;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    min-height: 600px;
+}
+
+.wooapp-positions-container {
+    display: flex;
+    flex-direction: row;
+    margin-top: 20px;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    min-height: 600px;
 }
 
 .wooapp-left-panel {
-    flex: 1;
-    max-width: 330px;
+    flex: 0 0 25%;
+    padding: 20px;
+    border-right: 2px solid #eee;
+    overflow-y: auto;
+    max-height: 100vh;
 }
 
 .wooapp-right-panel {
-    flex: 2;
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    max-height: 100vh;
 }
 
 .wooapp-left-panel h2 {
     margin-top: 0;
     margin-bottom: 20px;
-    font-size: 18px;
+    font-size: 16px;
 }
 
 .wooapp-left-panel .form-table {
-    background-color: #f9f9f9;
-    border: 1px solid #e0e0e0;
+    background-color: transparent;
+    border: none;
     padding: 0;
-    border-radius: 4px;
+    border-radius: 0;
     margin: 0;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .wooapp-left-panel .form-table tr {
     display: flex;
     flex-direction: column;
-    padding: 20px;
+    padding: 0 0 15px 0;
 }
 
 .wooapp-left-panel .form-table tr:last-child {
-    padding-top: 15px;
+    padding-bottom: 0;
 }
 
 .wooapp-left-panel .form-table tr.submit-row {
-    padding: 15px 20px;
+    padding: 15px 0 0 0;
+    border-top: 1px solid #eee;
+    margin-top: 15px;
 }
 
 .wooapp-left-panel .form-table th {
     text-align: left;
-    padding: 0 0 10px 0;
+    padding: 0 0 8px 0;
     font-weight: 600;
     border-bottom: none;
     display: block;
@@ -134,16 +202,24 @@
 .wooapp-left-panel input.regular-text {
     width: 100%;
     max-width: 100%;
-    padding: 8px;
+    padding: 8px 10px;
     box-sizing: border-box;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.wooapp-left-panel input.regular-text:focus {
+    outline: none;
+    border-color: #0073aa;
+    box-shadow: 0 0 0 2px rgba(0, 115, 170, 0.1);
 }
 
 .wooapp-left-panel .description {
     display: block;
-    margin-top: 8px;
+    margin-top: 6px;
     font-size: 12px;
     color: #666;
-    margin: 8px 0 0 0;
     line-height: 1.4;
 }
 
@@ -155,20 +231,22 @@
 
 .wooapp-left-panel .submit button {
     width: 100%;
-    padding: 8px 15px;
+    padding: 8px 12px;
     font-size: 13px;
     cursor: pointer;
+    box-sizing: border-box;
 }
 
 .wooapp-right-panel h2 {
     margin-top: 0;
     margin-bottom: 20px;
-    font-size: 18px;
+    font-size: 16px;
 }
 
 .wooapp-right-panel .wp-list-table {
     margin-top: 0;
     border-collapse: collapse;
+    width: 100%;
 }
 
 .wooapp-right-panel .wp-list-table thead th {
@@ -177,12 +255,14 @@
     font-weight: 600;
     border-bottom: 2px solid #ddd;
     background-color: #f5f5f5;
+    font-size: 13px;
 }
 
 .wooapp-right-panel .wp-list-table tbody td {
     padding: 15px;
     border-bottom: 1px solid #e5e5e5;
     vertical-align: top;
+    font-size: 13px;
 }
 
 .wooapp-right-panel .wp-list-table tbody tr:last-child td {
@@ -192,9 +272,18 @@
 .wooapp-right-panel input.regular-text {
     width: 100%;
     max-width: 100%;
-    padding: 8px;
+    padding: 8px 10px;
     box-sizing: border-box;
     margin: 0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.wooapp-right-panel input.regular-text:focus {
+    outline: none;
+    border-color: #0073aa;
+    box-shadow: 0 0 0 2px rgba(0, 115, 170, 0.1);
 }
 
 .wooapp-right-panel code {
@@ -214,4 +303,132 @@
 .wooapp-right-panel .submit {
     margin-top: 20px;
     padding: 0;
+}
+
+.wooapp-right-panel .submit button {
+    font-size: 13px;
+    padding: 8px 15px;
+}
+
+/* Position Configuration Section */
+.wooapp-position-config-section {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    max-height: 100vh;
+}
+
+.wooapp-position-config-section h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 16px;
+}
+
+.wooapp-position-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.wooapp-position-field label {
+    font-weight: 600;
+    font-size: 13px;
+    color: #333;
+}
+
+.wooapp-position-field input.regular-text,
+.wooapp-position-field select {
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.wooapp-position-field input.regular-text:focus,
+.wooapp-position-field select:focus {
+    outline: none;
+    border-color: #0073aa;
+    box-shadow: 0 0 0 2px rgba(0, 115, 170, 0.1);
+}
+
+.wooapp-position-key-display {
+    margin: 0;
+    font-size: 13px;
+}
+
+.wooapp-position-key-display code {
+    background-color: #f5f5f5;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.wooapp-position-field .description {
+    font-size: 11px;
+    color: #999;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.wooapp-position-field small {
+    font-size: 11px;
+    color: #999;
+    display: block;
+    margin-top: 6px;
+}
+
+.wooapp-position-actions-buttons {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    gap: 10px;
+}
+
+.wooapp-position-actions-buttons button {
+    padding: 8px 15px;
+    font-size: 13px;
+}
+
+/* Position Management Section */
+.wooapp-position-section {
+    flex: 0 0 25%;
+    padding: 20px;
+    border-right: 2px solid #eee;
+    overflow-y: auto;
+    max-height: 100vh;
+}
+
+.wooapp-position-section h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 16px;
+}
+
+.wooapp-position-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.wooapp-position-actions .wooapp-input {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.wooapp-position-actions .wooapp-input:focus {
+    outline: none;
+    border-color: #0073aa;
+    box-shadow: 0 0 0 2px rgba(0, 115, 170, 0.1);
+}
+
+.wooapp-position-actions .button {
+    white-space: nowrap;
+    width: 100%;
 }

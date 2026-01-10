@@ -198,6 +198,12 @@ class Admin extends AbstractService
                 'sidebar' => __('Sidebar', WOOAPP_TEXT_DOMAIN),
             );
         }
+
+        // Get current position from URL parameter or use first position
+        $current_position = isset($_GET['position']) ? sanitize_key($_GET['position']) : key($positions);
+        $current_position_label = isset($positions[$current_position]) ? $positions[$current_position] : '';
+        $current_position_categories = isset($mapping[$current_position]) ? $mapping[$current_position] : array();
+
         ?>
         <div class="wrap">
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
@@ -208,107 +214,82 @@ class Admin extends AbstractService
                 </div>
             <?php endif; ?>
 
-            <div class="wooapp-container-layout">
-                <div class="wooapp-left-panel">
-                    <h2><?php esc_html_e('Add New Position', WOOAPP_TEXT_DOMAIN); ?></h2>
-                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="wooapp-add-position">
-                        <?php wp_nonce_field('wooapp_save_category_positions'); ?>
-                        <input type="hidden" name="action" value="wooapp_save_category_positions">
-                        <input type="hidden" name="add_new_position" value="1">
+            <div id="wooapp-positions-container" class="wooapp-positions-container wooapp-layout-horizontal">
+                <!-- Position Management Section (Left) -->
+                <div class="wooapp-position-section">
+                    <h2><?php esc_html_e('Positions', WOOAPP_TEXT_DOMAIN); ?></h2>
+                    
+                    <div class="wooapp-position-actions">
+                        <input type="text" 
+                               id="wooapp-new-position-key" 
+                               class="wooapp-input"
+                               placeholder="<?php esc_attr_e('Position Key (e.g., banner, featured)', WOOAPP_TEXT_DOMAIN); ?>"
+                               title="<?php esc_attr_e('Position Key: Used internally for API calls. Must be lowercase, no spaces.', WOOAPP_TEXT_DOMAIN); ?>">
+                        <input type="text" 
+                               id="wooapp-new-position-label" 
+                               class="wooapp-input"
+                               placeholder="<?php esc_attr_e('Position Label (e.g., Banner Section)', WOOAPP_TEXT_DOMAIN); ?>"
+                               title="<?php esc_attr_e('Position Label: Display name shown in the interface.', WOOAPP_TEXT_DOMAIN); ?>">
+                        <button id="wooapp-create-position" class="button button-primary">
+                            <?php esc_html_e('+ Create Position', WOOAPP_TEXT_DOMAIN); ?>
+                        </button>
+                    </div>
 
-                        <table class="form-table">
-                            <tr>
-                                <th scope="row">
-                                    <label for="new_position_key"><?php esc_html_e('Position Key', WOOAPP_TEXT_DOMAIN); ?></label>
-                                </th>
-                                <td>
-                                    <input type="text" 
-                                           id="new_position_key" 
-                                           name="new_position_key" 
-                                           class="regular-text" 
-                                           placeholder="<?php esc_attr_e('e.g., section_1', WOOAPP_TEXT_DOMAIN); ?>"
-                                           required>
-                                    <p class="description"><?php esc_html_e('Use lowercase letters, numbers, and underscores only.', WOOAPP_TEXT_DOMAIN); ?></p>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">
-                                    <label for="new_position_label"><?php esc_html_e('Position Label', WOOAPP_TEXT_DOMAIN); ?></label>
-                                </th>
-                                <td>
-                                    <input type="text" 
-                                           id="new_position_label" 
-                                           name="new_position_label" 
-                                           class="regular-text" 
-                                           placeholder="<?php esc_attr_e('e.g., Featured Section', WOOAPP_TEXT_DOMAIN); ?>"
-                                           required>
-                                </td>
-                            </tr>
-                            <tr class="submit-row">
-                                <th scope="row"></th>
-                                <td>
-                                    <p class="submit">
-                                        <?php submit_button(__('Add Position', WOOAPP_TEXT_DOMAIN), 'secondary', 'submit', false); ?>
-                                    </p>
-                                </td>
-                            </tr>
-                        </table>
-                    </form>
+                    <div id="wooapp-positions-list" class="wooapp-positions-list">
+                        <?php foreach ($positions as $pos_key => $pos_label) : ?>
+                            <div class="wooapp-position-item <?php echo $current_position === $pos_key ? 'active' : ''; ?>" data-position="<?php echo esc_attr($pos_key); ?>" data-position-url="<?php echo esc_url(admin_url('admin.php?page=wooapp-category-positions&position=' . $pos_key)); ?>">
+                                <span class="wooapp-position-name">
+                                    <?php echo esc_html($pos_label); ?>
+                                </span>
+                                <button type="button" class="button button-link-delete wooapp-delete-position" data-position-key="<?php echo esc_attr($pos_key); ?>">
+                                    <?php esc_html_e('Delete', WOOAPP_TEXT_DOMAIN); ?>
+                                </button>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
 
-                <div class="wooapp-right-panel">
-                    <h2><?php esc_html_e('Configure Positions', WOOAPP_TEXT_DOMAIN); ?></h2>
-                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                <!-- Position Configuration Section (Right) -->
+                <div class="wooapp-position-config-section">
+                    <h2><?php esc_html_e('Configure "' . esc_html($current_position_label) . '" Position', WOOAPP_TEXT_DOMAIN); ?></h2>
+
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="wooapp-position-config-form">
                         <?php wp_nonce_field('wooapp_save_category_positions'); ?>
                         <input type="hidden" name="action" value="wooapp_save_category_positions">
+                        <input type="hidden" name="current_position" value="<?php echo esc_attr($current_position); ?>">
 
-                        <table class="wp-list-table widefat fixed striped">
-                            <thead>
-                                <tr>
-                                    <th width="5%"></th>
-                                    <th width="15%"><?php esc_html_e('Position Key', WOOAPP_TEXT_DOMAIN); ?></th>
-                                    <th width="30%"><?php esc_html_e('Position Label', WOOAPP_TEXT_DOMAIN); ?></th>
-                                    <th width="55%"><?php esc_html_e('Categories', WOOAPP_TEXT_DOMAIN); ?></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($positions as $position_key => $position_label) : ?>
-                                    <tr>
-                                        <td style="text-align: center; vertical-align: top;">
-                                            <button type="button" 
-                                                    class="wooapp-delete-position" 
-                                                    data-position-key="<?php echo esc_attr($position_key); ?>"
-                                                    style="background: none; border: none; cursor: pointer; color: inherit; font-size: 16px; padding: 4px 8px;" 
-                                                    title="<?php esc_attr_e('Delete', WOOAPP_TEXT_DOMAIN); ?>">
-                                                <span class="dashicons dashicons-trash"></span>
-                                            </button>
-                                        </td>
-                                        <td>
-                                            <code><?php echo esc_html($position_key); ?></code>
-                                            <input type="hidden" name="position_keys[]" value="<?php echo esc_attr($position_key); ?>">
-                                        </td>
-                                        <td>
-                                            <input type="text" 
-                                                   name="position_labels[<?php echo esc_attr($position_key); ?>]" 
-                                                   value="<?php echo esc_attr($position_label); ?>" 
-                                                   class="regular-text">
-                                        </td>
-                                        <td>
-                                            <select name="position_categories[<?php echo esc_attr($position_key); ?>][]" 
-                                                    class="wooapp-category-select" 
-                                                    multiple="multiple">
-                                                <?php self::render_category_options_with_collapse($all_categories, isset($mapping[$position_key]) ? $mapping[$position_key] : array()); ?>
-                                            </select>
-                                            <small><?php esc_html_e('Click category name to select/deselect. Click +/- icon to expand/collapse parent categories.', WOOAPP_TEXT_DOMAIN); ?></small>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+                        <div class="wooapp-position-field">
+                            <label><?php esc_html_e('Position Key', WOOAPP_TEXT_DOMAIN); ?></label>
+                            <p class="wooapp-position-key-display"><code><?php echo esc_html($current_position); ?></code></p>
+                        </div>
 
-                        <p class="submit">
-                            <?php submit_button(__('Save Positions', WOOAPP_TEXT_DOMAIN), 'primary', 'submit', false); ?>
-                        </p>
+                        <div class="wooapp-position-field">
+                            <label for="position-label"><?php esc_html_e('Position Label', WOOAPP_TEXT_DOMAIN); ?></label>
+                            <input type="text" 
+                                   id="position-label" 
+                                   name="position_label" 
+                                   class="regular-text"
+                                   value="<?php echo esc_attr($current_position_label); ?>"
+                                   required>
+                            <p class="description"><?php esc_html_e('Display name for this position.', WOOAPP_TEXT_DOMAIN); ?></p>
+                        </div>
+
+                        <div class="wooapp-position-field">
+                            <label><?php esc_html_e('Select Categories', WOOAPP_TEXT_DOMAIN); ?></label>
+                            <select id="position-categories" 
+                                    name="position_categories[]" 
+                                    class="wooapp-category-select" 
+                                    multiple="multiple">
+                                <?php self::render_category_options_with_collapse($all_categories, $current_position_categories); ?>
+                            </select>
+                            <small><?php esc_html_e('Click category name to select/deselect. Click +/- icon to expand/collapse parent categories.', WOOAPP_TEXT_DOMAIN); ?></small>
+                        </div>
+
+                        <div class="wooapp-position-actions-buttons">
+                            <button type="submit" class="button button-primary">
+                                <?php esc_html_e('Save Position', WOOAPP_TEXT_DOMAIN); ?>
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -331,70 +312,54 @@ class Admin extends AbstractService
             wp_die(__('Security check failed.', WOOAPP_TEXT_DOMAIN));
         }
 
-        // Handle adding new position
+        // Check if adding a new position
         if (isset($_POST['add_new_position']) && $_POST['add_new_position']) {
             $position_key = isset($_POST['new_position_key']) ? sanitize_key($_POST['new_position_key']) : '';
             $position_label = isset($_POST['new_position_label']) ? sanitize_text_field($_POST['new_position_label']) : '';
 
-            if (empty($position_key) || empty($position_label)) {
-                wp_safe_remote_post(admin_url('admin.php'), array(
-                    'blocking' => false,
-                    'sslverify' => apply_filters('https_local_ssl_verify', false),
-                ));
-                wp_redirect(add_query_arg('page', 'wooapp-category-positions', admin_url('admin.php?page=wooapp-settings')));
+            if (!empty($position_key) && !empty($position_label)) {
+                // Add new position
+                $positions = get_option(Constants::OPTION_CATEGORY_POSITIONS, array());
+                $positions[$position_key] = $position_label;
+                update_option(Constants::OPTION_CATEGORY_POSITIONS, $positions);
+                
+                // Redirect to the new position's configuration page
+                wp_redirect(add_query_arg(array('settings-updated' => 'true', 'position' => $position_key), admin_url('admin.php?page=wooapp-category-positions')));
                 exit;
             }
+        }
 
-            // Add new position
+        // Get current position from form
+        $current_position = isset($_POST['current_position']) ? sanitize_key($_POST['current_position']) : '';
+        
+        if (!empty($current_position)) {
+            // Update single position label
+            $position_label = isset($_POST['position_label']) ? sanitize_text_field($_POST['position_label']) : '';
+            
             $positions = get_option(Constants::OPTION_CATEGORY_POSITIONS, array());
-            $positions[$position_key] = $position_label;
-            update_option(Constants::OPTION_CATEGORY_POSITIONS, $positions);
-        } else {
-            // Update existing positions
-            $position_keys = isset($_POST['position_keys']) ? (array) $_POST['position_keys'] : array();
-            $position_labels = isset($_POST['position_labels']) ? $_POST['position_labels'] : array();
-            $position_categories = isset($_POST['position_categories']) ? $_POST['position_categories'] : array();
-
-            if (!empty($position_keys) && !empty($position_labels)) {
-                // Update labels only for valid position keys
-                $positions = get_option(Constants::OPTION_CATEGORY_POSITIONS, array());
-                foreach ($position_keys as $position_key) {
-                    $position_key = sanitize_key($position_key);
-                    if (isset($position_labels[$position_key])) {
-                        $positions[$position_key] = sanitize_text_field($position_labels[$position_key]);
-                    }
-                }
+            if (isset($positions[$current_position])) {
+                $positions[$current_position] = $position_label;
                 update_option(Constants::OPTION_CATEGORY_POSITIONS, $positions);
             }
 
-            // Update category mappings - only update positions that are in the form
+            // Update position categories
+            $position_categories = isset($_POST['position_categories']) && is_array($_POST['position_categories']) ? 
+                array_map('intval', $_POST['position_categories']) : array();
+            
             $mapping = get_option(Constants::OPTION_CATEGORY_POSITION_MAPPING, array());
-            $position_keys = isset($_POST['position_keys']) ? (array) $_POST['position_keys'] : array();
-            $position_categories = isset($_POST['position_categories']) ? $_POST['position_categories'] : array();
-
-            // Update mappings for all positions submitted in the form
-            foreach ($position_keys as $position_key) {
-                $position_key = sanitize_key($position_key);
-                
-                if (isset($position_categories[$position_key]) && is_array($position_categories[$position_key]) && !empty($position_categories[$position_key])) {
-                    // This position has categories selected
-                    $mapping[$position_key] = array_map('intval', $position_categories[$position_key]);
-                } else {
-                    // This position has no categories selected, clear its mapping
-                    if (isset($mapping[$position_key])) {
-                        unset($mapping[$position_key]);
-                    }
+            if (!empty($position_categories)) {
+                $mapping[$current_position] = $position_categories;
+            } else {
+                if (isset($mapping[$current_position])) {
+                    unset($mapping[$current_position]);
                 }
             }
             update_option(Constants::OPTION_CATEGORY_POSITION_MAPPING, $mapping);
-        }
 
-        // Redirect back to settings page
-        wp_safe_remote_post(admin_url('admin.php'), array(
-            'blocking' => false,
-            'sslverify' => apply_filters('https_local_ssl_verify', false),
-        ));
-        wp_redirect(add_query_arg('settings-updated', 'true', admin_url('admin.php?page=wooapp-category-positions')));
+            wp_redirect(add_query_arg(array('settings-updated' => 'true', 'position' => $current_position), admin_url('admin.php?page=wooapp-category-positions')));
+        } else {
+            wp_redirect(add_query_arg('settings-updated', 'true', admin_url('admin.php?page=wooapp-category-positions')));
+        }
         exit;
     }
 
@@ -483,7 +448,7 @@ class Admin extends AbstractService
         }
 
         $groups = BannerManager::get_groups();
-        $current_group = isset($_GET['group']) ? sanitize_key($_GET['group']) : (isset($groups[0]) ? $groups[0] : 'default');
+        $current_group = isset($_GET['group']) ? sanitize_text_field($_GET['group']) : (isset($groups[0]) ? $groups[0] : 'default');
         $banners = BannerManager::get_banners($current_group);
         ?>
         <div class="wrap">
@@ -512,8 +477,8 @@ class Admin extends AbstractService
 
                     <div id="wooapp-groups-list" class="wooapp-groups-list">
                         <?php foreach ($groups as $group) : ?>
-                            <div class="wooapp-group-item" data-group="<?php echo esc_attr($group); ?>" data-group-url="<?php echo esc_url(add_query_arg('group', $group)); ?>">
-                                <span class="wooapp-group-name <?php echo $current_group === $group ? 'active' : ''; ?>">
+                            <div class="wooapp-group-item <?php echo $current_group === $group ? 'active' : ''; ?>" data-group="<?php echo esc_attr($group); ?>" data-group-url="<?php echo esc_url(add_query_arg('group', $group)); ?>">
+                                <span class="wooapp-group-name">
                                     <?php echo esc_html($group); ?>
                                 </span>
                                 <?php if ($group !== 'default') : ?>
