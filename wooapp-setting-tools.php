@@ -4,7 +4,7 @@
  * Plugin Name: WooApp Setting Tools
  * Plugin URI: https://kevindree.geehootek.com
  * Description: WooCommerce APP Support Tools - API Authentication, Category Grouping & Custom Settings
- * Version: 1.0.1
+ * Version: 1.0.2
  * Author: Kevindree
  * Author URI: https://kevindree.geehootek.com
  * License: GPL v3 or later

@@ -94,9 +94,8 @@ class Admin extends AbstractService
             return;
         }
 
-        // Get plugin URL correctly (Admin.php is in src/Admin, so we need 3 levels up)
-        $plugin_dir = dirname(dirname(dirname(__FILE__)));
-        $plugin_url = plugins_url('', $plugin_dir . '/wooapp-setting-tools.php');
+        // Use the plugin URL constant defined during plugin initialization
+        $plugin_url = WOOAPP_PLUGIN_URL;
         
         // Enqueue CSS
         wp_enqueue_style(
