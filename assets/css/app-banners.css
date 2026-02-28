@@ -126,10 +126,6 @@
     padding: 0;
 }
 
-.wooapp-banners-list.ui-sortable {
-    /* This class is added by jQuery Sortable */
-}
-
 .wooapp-no-banners {
     text-align: center;
     padding: 40px 20px;
