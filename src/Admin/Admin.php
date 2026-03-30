@@ -80,7 +80,18 @@ class Admin extends AbstractService
      */
     public function initSettings()
     {
-        // Register settings here
+        // Initialize default category positions if they don't exist
+        $positions = get_option(Constants::OPTION_CATEGORY_POSITIONS, array());
+        
+        if (empty($positions)) {
+            $default_positions = array(
+                'banner' => __('Banner Section', WOOAPP_TEXT_DOMAIN),
+                'featured' => __('Featured Products', WOOAPP_TEXT_DOMAIN),
+                'sidebar' => __('Sidebar', WOOAPP_TEXT_DOMAIN),
+            );
+            
+            update_option(Constants::OPTION_CATEGORY_POSITIONS, $default_positions);
+        }
     }
 
     /**
