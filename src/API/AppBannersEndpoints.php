@@ -61,6 +61,25 @@ class AppBannersEndpoints
                 'permission_callback' => '__return_true',
             )
         );
+
+        // GET /wooapp/v1/banner-groups/{banner_group_key}
+        register_rest_route(
+            Constants::REST_NAMESPACE,
+            '/banner-groups/(?P<banner_group_key>[\w-]+)',
+            array(
+                'methods' => 'GET',
+                'callback' => array($this, 'get_group'),
+                'permission_callback' => '__return_true',
+                'args' => array(
+                    'banner_group_key' => array(
+                        'required' => true,
+                        'validate_callback' => function ($param) {
+                            return is_string($param);
+                        },
+                    ),
+                ),
+            )
+        );
     }
 
     /**
@@ -165,15 +184,73 @@ class AppBannersEndpoints
     {
         try {
             $groups = BannerManager::get_groups();
+            $all_banners = BannerManager::get_banners();
+
             $formatted = array();
             foreach ($groups as $key => $label) {
-                $formatted[] = array('key' => $key, 'label' => $label);
+                // Filter banners belonging to this group (with image)
+                $group_banners = array();
+                foreach ($all_banners as $banner) {
+                    $banner_group = isset($banner['group']) ? $banner['group'] : 'default';
+                    if ($banner_group === $key && !empty($banner['image_url'])) {
+                        $group_banners[] = $this->format_banner_response($banner);
+                    }
+                }
+
+                $formatted[] = array(
+                    'banner_group_key' => $key,
+                    'label'            => $label,
+                    'banners'          => $group_banners,
+                );
             }
 
             return rest_ensure_response(array(
                 'success' => true,
                 'data' => $formatted,
                 'total' => count($formatted),
+            ));
+        } catch (\Exception $e) {
+            return rest_ensure_response(array(
+                'success' => false,
+                'message' => $e->getMessage(),
+            ));
+        }
+    }
+
+    /**
+     * Get a single banner group with its banners
+     *
+     * @param \WP_REST_Request $request REST API request
+     * @return \WP_REST_Response Response object
+     */
+    public function get_group($request)
+    {
+        try {
+            $banner_group_key = $request->get_param('banner_group_key');
+            $groups = BannerManager::get_groups();
+
+            if (!isset($groups[$banner_group_key])) {
+                return rest_ensure_response(array(
+                    'success' => false,
+                    'message' => __('Banner group not found.', WOOAPP_TEXT_DOMAIN),
+                ));
+            }
+
+            $all_banners = BannerManager::get_banners($banner_group_key);
+            $group_banners = array();
+            foreach ($all_banners as $banner) {
+                if (!empty($banner['image_url'])) {
+                    $group_banners[] = $this->format_banner_response($banner);
+                }
+            }
+
+            return rest_ensure_response(array(
+                'success' => true,
+                'data' => array(
+                    'banner_group_key' => $banner_group_key,
+                    'label'            => $groups[$banner_group_key],
+                    'banners'          => $group_banners,
+                ),
             ));
         } catch (\Exception $e) {
             return rest_ensure_response(array(

@@ -99,8 +99,9 @@ class AppPositionEndpoints
             }
 
             $result[$position_key] = array(
-                'label'      => $position_data['label'],
-                'categories' => $categories,
+                'label'        => $position_data['label'],
+                'category_ids' => !empty($position_data['categories']) ? array_map('intval', $position_data['categories']) : array(),
+                'categories'   => $categories,
             );
         }
 
@@ -144,6 +145,7 @@ class AppPositionEndpoints
         return new WP_REST_Response(
             array(
                 'label'        => $label,
+                'category_ids' => array_map('intval', $category_ids),
                 'categories'   => $categories,
             ),
             200

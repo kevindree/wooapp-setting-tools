@@ -565,11 +565,80 @@ paths:
               example:
                 success: true
                 data:
-                  - key: default
+                  - banner_group_key: default
                     label: Default
-                  - key: home-page-main
+                    banners:
+                      - id: banner_1775330415604
+                        group: default
+                        group_label: Default
+                        image_id: 101
+                        image_url: https://example.com/wp-content/uploads/banner1.jpg
+                        deeplink: /product/123
+                        order: 0
+                        created_at: '2025-06-01 10:00:00'
+                        updated_at: '2025-06-02 12:00:00'
+                  - banner_group_key: home-page-main
                     label: Home Page Main
+                    banners: []
                 total: 2
+
+  /banner-groups/{banner_group_key}:
+    get:
+      tags:
+        - Banner Groups
+      summary: Get a specific banner group
+      description: Retrieve a single banner group by key, including its banners.
+      operationId: getBannerGroup
+      parameters:
+        - name: banner_group_key
+          in: path
+          required: true
+          description: Banner group key
+          schema:
+            type: string
+            pattern: '^[\w-]+$'
+            example: default
+      responses:
+        '200':
+          description: Banner group found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/BannerGroup'
+              example:
+                success: true
+                data:
+                  banner_group_key: default
+                  label: Default
+                  banners:
+                    - id: banner_1775330415604
+                      group: default
+                      group_label: Default
+                      image_id: 101
+                      image_url: https://example.com/wp-content/uploads/banner1.jpg
+                      deeplink: /product/123
+                      order: 0
+                      created_at: '2025-06-01 10:00:00'
+                      updated_at: '2025-06-02 12:00:00'
+        '200 ':
+          description: Banner group not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: Banner group not found.
 
   # ============================================
   # Category Positions
@@ -598,6 +667,7 @@ paths:
               example:
                 banner:
                   label: Banner Section
+                  category_ids: [15, 23]
                   categories:
                     - id: 15
                       name: Electronics
@@ -607,6 +677,7 @@ paths:
                       slug: clothing
                 featured:
                   label: Featured Products
+                  category_ids: [15]
                   categories:
                     - id: 15
                       name: Electronics
@@ -640,6 +711,7 @@ paths:
                 $ref: '#/components/schemas/CategoryPosition'
               example:
                 label: Banner Section
+                category_ids: [15]
                 categories:
                   - id: 15
                     name: Electronics
@@ -751,7 +823,7 @@ components:
     BannerGroup:
       type: object
       properties:
-        key:
+        banner_group_key:
           type: string
           description: Unique group key (auto-generated from label)
           example: home-page-main
@@ -759,6 +831,11 @@ components:
           type: string
           description: Display name of the group
           example: Home Page Main
+        banners:
+          type: array
+          description: Banners belonging to this group (only those with an image)
+          items:
+            $ref: '#/components/schemas/Banner'
 
     CategoryPosition:
       type: object
@@ -767,9 +844,15 @@ components:
           type: string
           description: Display name of the position
           example: Banner Section
+        category_ids:
+          type: array
+          description: Raw list of assigned category IDs
+          items:
+            type: integer
+          example: [15, 23]
         categories:
           type: array
-          description: Assigned product categories
+          description: Assigned product categories with details
           items:
             $ref: '#/components/schemas/Category'
 
