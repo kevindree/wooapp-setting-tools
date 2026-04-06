@@ -133,9 +133,9 @@
 
         createGroup: function() {
             var self = this;
-            var groupName = this.$newGroupInput.val().trim();
+            var groupLabel = this.$newGroupInput.val().trim();
 
-            if (!groupName) {
+            if (!groupLabel) {
                 alert('Please enter a group name');
                 return;
             }
@@ -154,25 +154,23 @@
                 data: {
                     action: 'wooapp_create_banner_group',
                     nonce: nonce,
-                    group_name: groupName
+                    group_name: groupLabel
                 },
                 success: function(response) {
                     if (response.success) {
-                        // Use the group name returned from server (normalized)
-                        var normalizedGroupName = response.data.group || groupName;
+                        var groupKey = response.data.group_key;
+                        var groupLabel = response.data.group_label;
                         
-                        // Generate the proper URL
-                        var groupUrl = '?page=wooapp-app-banners&group=' + encodeURIComponent(normalizedGroupName);
+                        // Generate the proper URL using key
+                        var groupUrl = '?page=wooapp-app-banners&group=' + encodeURIComponent(groupKey);
                         
-                        // Add group to list
+                        // Add group to list with key + label display
                         var groupHtml = `
-                            <div class="wooapp-group-item" data-group="${normalizedGroupName}" data-group-url="${groupUrl}">
+                            <div class="wooapp-group-item" data-group="${groupKey}" data-group-url="${groupUrl}">
                                 <span class="wooapp-group-name">
-                                    <a href="${groupUrl}" class="wooapp-group-link">
-                                        ${normalizedGroupName}
-                                    </a>
+                                    ${groupLabel}
                                 </span>
-                                <button type="button" class="button button-link-delete wooapp-delete-group" data-group="${normalizedGroupName}">
+                                <button type="button" class="button button-link-delete wooapp-delete-group" data-group="${groupKey}">
                                     Delete
                                 </button>
                             </div>
@@ -190,7 +188,7 @@
             });
         },
 
-        deleteGroup: function(groupName) {
+        deleteGroup: function(groupKey) {
             var self = this;
 
             var nonce = wooappBanners ? wooappBanners.bannersNonce : '';
@@ -207,11 +205,11 @@
                 data: {
                     action: 'wooapp_delete_banner_group',
                     nonce: nonce,
-                    group_name: groupName
+                    group_key: groupKey
                 },
                 success: function(response) {
                     if (response.success) {
-                        self.$groupsList.find(`[data-group="${groupName}"]`).fadeOut(300, function() {
+                        self.$groupsList.find(`[data-group="${groupKey}"]`).fadeOut(300, function() {
                             $(this).remove();
                             // Redirect to first group
                             window.location.href = '?page=wooapp-app-banners';

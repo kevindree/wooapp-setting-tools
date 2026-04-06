@@ -106,6 +106,73 @@ class CategoryPositionManager
     }
 
     /**
+     * Generate a unique position key from a label.
+     * Uses sanitize_title for slug generation, appends a numeric suffix if key already exists.
+     *
+     * @param string $label Position label
+     * @param array  $existing_keys Existing position keys to check against
+     * @return string Generated unique key
+     */
+    public static function generate_position_key($label, $existing_keys = array())
+    {
+        $base_key = sanitize_title($label);
+        if (empty($base_key)) {
+            $base_key = 'position';
+        }
+
+        $key = $base_key;
+        $counter = 1;
+        while (in_array($key, $existing_keys, true)) {
+            $key = $base_key . '-' . $counter;
+            $counter++;
+        }
+
+        return $key;
+    }
+
+    /**
+     * Add a new position (auto-generate key from label)
+     *
+     * @param string $position_label Display label for position
+     * @return array|false Array with 'key' and 'label' on success, false on failure
+     */
+    public static function add_position($position_label)
+    {
+        $position_label = sanitize_text_field($position_label);
+        if (empty($position_label)) {
+            return false;
+        }
+
+        $positions = get_option(Constants::OPTION_CATEGORY_POSITIONS, array());
+        if (!is_array($positions)) {
+            $positions = array();
+        }
+
+        $position_key = self::generate_position_key($position_label, array_keys($positions));
+
+        if (isset($positions[$position_key])) {
+            return false;
+        }
+
+        $positions[$position_key] = $position_label;
+        update_option(Constants::OPTION_CATEGORY_POSITIONS, $positions);
+
+        return array('key' => $position_key, 'label' => $position_label);
+    }
+
+    /**
+     * Check if a position exists
+     *
+     * @param string $position_key Position key
+     * @return bool
+     */
+    public static function position_exists($position_key)
+    {
+        $positions = get_option(Constants::OPTION_CATEGORY_POSITIONS, array());
+        return isset($positions[$position_key]);
+    }
+
+    /**
      * Add or update a position
      *
      * @param string $position_key Unique position key

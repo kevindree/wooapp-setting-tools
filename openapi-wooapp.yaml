@@ -1,0 +1,605 @@
+openapi: 3.0.3
+info:
+  title: WooApp Setting Tools API
+  description: |
+    REST API for WooApp Setting Tools WordPress plugin.
+    Provides endpoints for user authentication, app banners management,
+    and category position configuration.
+
+    ## Authentication
+    - **OAuth 1.0** — Required for HTTP connections (userlogin, register, category-positions)
+    - **Basic Auth** — Allowed over HTTPS only (userlogin, register, category-positions)
+    - **No Auth** — Banner and banner-group GET endpoints are publicly accessible
+    - **Admin Auth** — Banner group POST/DELETE requires `manage_options` capability (WordPress cookie/nonce)
+  version: 1.0.3
+  contact:
+    name: Geehootek
+
+servers:
+  - url: https://example.com/wp-json/wooapp/v1
+    description: Production server
+  - url: https://wordpress-dev.com/wp-json/wooapp/v1
+    description: Development server
+
+tags:
+  - name: Authentication
+    description: User login and registration
+  - name: Banners
+    description: App banner management
+  - name: Banner Groups
+    description: Banner group management
+  - name: Category Positions
+    description: Category position configuration
+
+paths:
+  # ============================================
+  # User Authentication
+  # ============================================
+  /userlogin:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate a user with username and password. Returns user profile on success.
+      operationId: userLogin
+      security:
+        - OAuth1: []
+        - BasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  example: kevin
+                password:
+                  type: string
+                  format: password
+                  example: Passw0rd!
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: Missing username or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+              example:
+                code: invalid_credentials
+                message: username or password is missing
+                data:
+                  status: 400
+        '403':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+              example:
+                code: invalid_credentials
+                message: invalid username or password
+                data:
+                  status: 403
+
+  /register:
+    post:
+      tags:
+        - Authentication
+      summary: Customer registration
+      description: |
+        Register a new customer account. Username, email, password and phone are required.
+        Optionally provide billing address information.
+      operationId: customerRegister
+      security:
+        - OAuth1: []
+        - BasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - email
+                - password
+                - phone
+              properties:
+                username:
+                  type: string
+                  description: Must be unique
+                  example: kevin
+                email:
+                  type: string
+                  format: email
+                  description: Must be unique
+                  example: kevin@example.com
+                password:
+                  type: string
+                  format: password
+                  example: Passw0rd!
+                phone:
+                  type: string
+                  description: Must be unique
+                  example: '1234567890'
+                display_name:
+                  type: string
+                  example: Kevin Zhu
+                first_name:
+                  type: string
+                  example: Kevin
+                last_name:
+                  type: string
+                  example: Zhu
+                billing:
+                  $ref: '#/components/schemas/BillingAddress'
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: Missing required fields or invalid email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+              examples:
+                missing_fields:
+                  summary: Missing required fields
+                  value:
+                    code: missing_fields
+                    message: username, email, password and phone are required
+                    data:
+                      status: 400
+                invalid_email:
+                  summary: Invalid email format
+                  value:
+                    code: invalid_email
+                    message: email format is invalid
+                    data:
+                      status: 400
+        '409':
+          description: Username, email, or phone already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+              examples:
+                username_exists:
+                  summary: Username taken
+                  value:
+                    code: username_exists
+                    message: username already exists
+                    data:
+                      status: 409
+                email_exists:
+                  summary: Email taken
+                  value:
+                    code: email_exists
+                    message: email already exists
+                    data:
+                      status: 409
+                phone_exists:
+                  summary: Phone taken
+                  value:
+                    code: phone_exists
+                    message: phone already exists
+                    data:
+                      status: 409
+        '500':
+          description: User creation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+
+  # ============================================
+  # Banners
+  # ============================================
+  /banners:
+    get:
+      tags:
+        - Banners
+      summary: Get all banners
+      description: |
+        Retrieve all banners. Optionally filter by group key.
+        Only banners with an image_url are returned.
+      operationId: getBanners
+      parameters:
+        - name: group
+          in: query
+          required: false
+          description: Filter banners by group key
+          schema:
+            type: string
+            example: default
+      responses:
+        '200':
+          description: Banners retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Banner'
+                  total:
+                    type: integer
+                    example: 4
+
+  /banners/{id}:
+    get:
+      tags:
+        - Banners
+      summary: Get a single banner
+      description: Retrieve a specific banner by its ID.
+      operationId: getBanner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Banner ID
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_]+$'
+            example: banner_1775330415604
+      responses:
+        '200':
+          description: Banner found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Banner'
+              example:
+                success: true
+                data:
+                  id: banner_1775330415604
+                  group: default
+                  group_label: Default
+                  image_id: 72
+                  image_url: https://example.com/wp-content/uploads/2025/12/banner.jpg
+                  deeplink: ''
+                  order: 0
+                  created_at: '2026-04-04 23:20:15'
+                  updated_at: '2026-04-04 23:20:15'
+        '200 ':
+          description: Banner not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: Banner not found.
+
+  # ============================================
+  # Banner Groups
+  # ============================================
+  /banner-groups:
+    get:
+      tags:
+        - Banner Groups
+      summary: Get all banner groups
+      description: Retrieve all banner groups with their keys and labels.
+      operationId: getBannerGroups
+      responses:
+        '200':
+          description: Banner groups retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BannerGroup'
+                  total:
+                    type: integer
+                    example: 2
+              example:
+                success: true
+                data:
+                  - key: default
+                    label: Default
+                  - key: home-page-main
+                    label: Home Page Main
+                total: 2
+
+  # ============================================
+  # Category Positions
+  # ============================================
+  /category-positions:
+    get:
+      tags:
+        - Category Positions
+      summary: Get all category positions
+      description: |
+        Retrieve all category positions with their labels and assigned categories.
+        Each category includes id, name, and slug.
+      operationId: getCategoryPositions
+      security:
+        - OAuth1: []
+        - BasicAuth: []
+      responses:
+        '200':
+          description: Category positions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/CategoryPosition'
+              example:
+                banner:
+                  label: Banner Section
+                  categories:
+                    - id: 15
+                      name: Electronics
+                      slug: electronics
+                    - id: 23
+                      name: Clothing
+                      slug: clothing
+                featured:
+                  label: Featured Products
+                  categories:
+                    - id: 15
+                      name: Electronics
+                      slug: electronics
+
+  /category-positions/{position_key}:
+    get:
+      tags:
+        - Category Positions
+      summary: Get categories for a specific position
+      description: Retrieve the label and assigned categories for a single position.
+      operationId: getPositionCategories
+      security:
+        - OAuth1: []
+        - BasicAuth: []
+      parameters:
+        - name: position_key
+          in: path
+          required: true
+          description: Position key identifier
+          schema:
+            type: string
+            pattern: '^[\w-]+$'
+            example: banner
+      responses:
+        '200':
+          description: Position found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryPosition'
+              example:
+                label: Banner Section
+                categories:
+                  - id: 15
+                    name: Electronics
+                    slug: electronics
+        '404':
+          description: Position not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Position not found
+
+# ============================================
+# Components
+# ============================================
+components:
+  securitySchemes:
+    OAuth1:
+      type: http
+      scheme: oauth
+      description: |
+        OAuth 1.0 authentication using WooCommerce consumer key/secret.
+        Required for HTTP connections. Uses HMAC-SHA256 signature method.
+    BasicAuth:
+      type: http
+      scheme: basic
+      description: |
+        Basic authentication using WooCommerce consumer key (username)
+        and consumer secret (password). Only allowed over HTTPS.
+
+  schemas:
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: kevin
+        email:
+          type: string
+          format: email
+          example: kevin@example.com
+        display_name:
+          type: string
+          example: Kevin Zhu
+        nickname:
+          type: string
+          example: kevin
+        first_name:
+          type: string
+          example: Kevin
+        last_name:
+          type: string
+          example: Zhu
+        phone:
+          type: string
+          example: '1234567890'
+
+    Banner:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique banner ID
+          example: banner_1775330415604
+        group:
+          type: string
+          description: Group key this banner belongs to
+          example: default
+        group_label:
+          type: string
+          description: Display label of the group
+          example: Default
+        image_id:
+          type: integer
+          description: WordPress media attachment ID
+          example: 72
+        image_url:
+          type: string
+          format: uri
+          description: Full URL to the banner image
+          example: https://example.com/wp-content/uploads/2025/12/banner.jpg
+        deeplink:
+          type: string
+          description: Deep link URL for banner tap action
+          example: 'myapp://product/123'
+        order:
+          type: integer
+          description: Display order within the group (0-based)
+          example: 0
+        created_at:
+          type: string
+          description: Creation timestamp
+          example: '2026-04-04 23:20:15'
+        updated_at:
+          type: string
+          description: Last update timestamp
+          example: '2026-04-04 23:20:15'
+
+    BannerGroup:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Unique group key (auto-generated from label)
+          example: home-page-main
+        label:
+          type: string
+          description: Display name of the group
+          example: Home Page Main
+
+    CategoryPosition:
+      type: object
+      properties:
+        label:
+          type: string
+          description: Display name of the position
+          example: Banner Section
+        categories:
+          type: array
+          description: Assigned product categories
+          items:
+            $ref: '#/components/schemas/Category'
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: WooCommerce product category term ID
+          example: 15
+        name:
+          type: string
+          description: Category display name
+          example: Electronics
+        slug:
+          type: string
+          description: Category URL slug
+          example: electronics
+
+    BillingAddress:
+      type: object
+      description: WooCommerce billing address fields
+      properties:
+        first_name:
+          type: string
+          example: Kevin
+        last_name:
+          type: string
+          example: Zhu
+        company:
+          type: string
+        address_1:
+          type: string
+          example: Some street 1
+        address_2:
+          type: string
+        city:
+          type: string
+          example: Dubai
+        state:
+          type: string
+        postcode:
+          type: string
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2 country code
+          example: AE
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          example: '12345678'
+
+    WPError:
+      type: object
+      description: WordPress REST API error response
+      properties:
+        code:
+          type: string
+          example: invalid_credentials
+        message:
+          type: string
+          example: invalid username or password
+        data:
+          type: object
+          properties:
+            status:
+              type: integer
+              example: 403

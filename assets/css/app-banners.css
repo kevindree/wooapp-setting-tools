@@ -86,6 +86,30 @@
     cursor: pointer;
 }
 
+.wooapp-group-key-field {
+    margin-bottom: 15px;
+}
+
+.wooapp-group-key-field label {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 4px;
+    color: #1d2327;
+}
+
+.wooapp-group-key-display {
+    margin: 0;
+    font-size: 13px;
+}
+
+.wooapp-group-key-display code {
+    background-color: #f5f5f5;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
 .wooapp-group-item .button-link-delete {
     opacity: 0;
     transition: opacity 0.3s ease;

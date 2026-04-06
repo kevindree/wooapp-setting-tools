@@ -61,38 +61,6 @@ class AppBannersEndpoints
                 'permission_callback' => '__return_true',
             )
         );
-
-        // POST /wooapp/v1/banner-groups (create group)
-        register_rest_route(
-            Constants::REST_NAMESPACE,
-            '/banner-groups',
-            array(
-                'methods' => 'POST',
-                'callback' => array($this, 'create_group'),
-                'permission_callback' => array($this, 'permission_callback'),
-            )
-        );
-
-        // DELETE /wooapp/v1/banner-groups/{name} (delete group)
-        register_rest_route(
-            Constants::REST_NAMESPACE,
-            '/banner-groups/(?P<name>[a-zA-Z0-9_-]+)',
-            array(
-                'methods' => 'DELETE',
-                'callback' => array($this, 'delete_group'),
-                'permission_callback' => array($this, 'permission_callback'),
-            )
-        );
-    }
-
-    /**
-     * Check if user has permission to manage banners
-     * 
-     * @return bool
-     */
-    public function permission_callback()
-    {
-        return current_user_can('manage_options');
     }
 
     /**
@@ -169,9 +137,11 @@ class AppBannersEndpoints
      */
     private function format_banner_response($banner)
     {
+        $group_key = isset($banner['group']) ? $banner['group'] : 'default';
         return array(
             'id' => isset($banner['id']) ? $banner['id'] : '',
-            'group' => isset($banner['group']) ? $banner['group'] : 'default',
+            'group' => $group_key,
+            'group_label' => BannerManager::get_group_label($group_key),
             'image_id' => isset($banner['image_id']) ? (int)$banner['image_id'] : 0,
             'image_url' => isset($banner['image_url']) ? $banner['image_url'] : '',
             'deeplink' => isset($banner['deeplink']) ? $banner['deeplink'] : '',
@@ -195,96 +165,16 @@ class AppBannersEndpoints
     {
         try {
             $groups = BannerManager::get_groups();
+            $formatted = array();
+            foreach ($groups as $key => $label) {
+                $formatted[] = array('key' => $key, 'label' => $label);
+            }
 
             return rest_ensure_response(array(
                 'success' => true,
-                'data' => $groups,
-                'total' => count($groups),
+                'data' => $formatted,
+                'total' => count($formatted),
             ));
-        } catch (\Exception $e) {
-            return rest_ensure_response(array(
-                'success' => false,
-                'message' => $e->getMessage(),
-            ));
-        }
-    }
-
-    /**
-     * Create a new banner group
-     *
-     * @param \WP_REST_Request $request REST API request
-     * @return \WP_REST_Response Response object
-     */
-    public function create_group($request)
-    {
-        try {
-            $group_name = $request->get_json_params();
-            $group_name = isset($group_name['name']) ? sanitize_text_field($group_name['name']) : '';
-
-            if (empty($group_name)) {
-                return rest_ensure_response(array(
-                    'success' => false,
-                    'message' => __('Group name is required.', WOOAPP_TEXT_DOMAIN),
-                ));
-            }
-
-            if (BannerManager::add_group($group_name)) {
-                return rest_ensure_response(array(
-                    'success' => true,
-                    'message' => __('Group created successfully.', WOOAPP_TEXT_DOMAIN),
-                    'data' => $group_name,
-                ));
-            } else {
-                return rest_ensure_response(array(
-                    'success' => false,
-                    'message' => __('Failed to create group. Group may already exist.', WOOAPP_TEXT_DOMAIN),
-                ));
-            }
-        } catch (\Exception $e) {
-            return rest_ensure_response(array(
-                'success' => false,
-                'message' => $e->getMessage(),
-            ));
-        }
-    }
-
-    /**
-     * Delete a banner group
-     *
-     * @param \WP_REST_Request $request REST API request
-     * @return \WP_REST_Response Response object
-     */
-    public function delete_group($request)
-    {
-        try {
-            $group_name = $request->get_param('name');
-            $group_name = sanitize_text_field($group_name);
-
-            if (empty($group_name)) {
-                return rest_ensure_response(array(
-                    'success' => false,
-                    'message' => __('Group name is required.', WOOAPP_TEXT_DOMAIN),
-                ));
-            }
-
-            if ($group_name === 'default') {
-                return rest_ensure_response(array(
-                    'success' => false,
-                    'message' => __('Cannot delete default group.', WOOAPP_TEXT_DOMAIN),
-                ));
-            }
-
-            if (BannerManager::delete_group($group_name)) {
-                return rest_ensure_response(array(
-                    'success' => true,
-                    'message' => __('Group deleted successfully.', WOOAPP_TEXT_DOMAIN),
-                ));
-            } else {
-                return rest_ensure_response(array(
-                    'success' => false,
-                    'message' => __('Failed to delete group.', WOOAPP_TEXT_DOMAIN),
-                ));
-            }
         } catch (\Exception $e) {
             return rest_ensure_response(array(
                 'success' => false,

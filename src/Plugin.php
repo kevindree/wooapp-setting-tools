@@ -86,7 +86,7 @@ class Plugin
             define('WOOAPP_PLUGIN_URL', plugin_dir_url(WOOAPP_PLUGIN_FILE));
         }
         if (!defined('WOOAPP_VERSION')) {
-            define('WOOAPP_VERSION', '1.0.0');
+            define('WOOAPP_VERSION', '1.0.3');
         }
         if (!defined('WOOAPP_TEXT_DOMAIN')) {
             define('WOOAPP_TEXT_DOMAIN', 'wooapp-setting-tools');

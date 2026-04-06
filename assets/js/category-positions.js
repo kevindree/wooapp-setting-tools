@@ -12,7 +12,6 @@
             this.$container = document.getElementById('wooapp-positions-container');
             this.$positionsList = document.getElementById('wooapp-positions-list');
             this.$createPositionBtn = document.getElementById('wooapp-create-position');
-            this.$positionKeyInput = document.getElementById('wooapp-new-position-key');
             this.$positionLabelInput = document.getElementById('wooapp-new-position-label');
             this.$deleteNonce = document.getElementById('wooapp-delete-nonce');
         },
@@ -28,16 +27,7 @@
                 });
             }
 
-            // Handle Enter key in position inputs
-            if (this.$positionKeyInput) {
-                this.$positionKeyInput.addEventListener('keypress', function(e) {
-                    if (e.which === 13 || e.key === 'Enter') {
-                        e.preventDefault();
-                        self.createPosition();
-                    }
-                });
-            }
-
+            // Handle Enter key in position label input
             if (this.$positionLabelInput) {
                 this.$positionLabelInput.addEventListener('keypress', function(e) {
                     if (e.which === 13 || e.key === 'Enter') {
@@ -77,24 +67,10 @@
         },
 
         createPosition: function() {
-            var key = this.$positionKeyInput.value.trim();
             var label = this.$positionLabelInput.value.trim();
 
-            if (!key || !label) {
-                alert('Please enter both position key and label');
-                return;
-            }
-
-            // Validate key format (lowercase, numbers, underscores, hyphens)
-            if (!/^[a-z0-9_-]+$/.test(key)) {
-                alert('Position key can only contain lowercase letters, numbers, underscores, and hyphens');
-                return;
-            }
-
-            // Check if key already exists
-            var existingItem = this.$positionsList.querySelector('[data-position="' + key + '"]');
-            if (existingItem) {
-                alert('This position key already exists');
+            if (!label) {
+                alert('Please enter a position label');
                 return;
             }
 
@@ -126,12 +102,6 @@
             addNewInput.name = 'add_new_position';
             addNewInput.value = '1';
             form.appendChild(addNewInput);
-
-            var keyInput = document.createElement('input');
-            keyInput.type = 'hidden';
-            keyInput.name = 'new_position_key';
-            keyInput.value = key;
-            form.appendChild(keyInput);
 
             var labelInput = document.createElement('input');
             labelInput.type = 'hidden';

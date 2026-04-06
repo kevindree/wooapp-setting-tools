@@ -307,9 +307,34 @@ class BannerManager
     // ============================================
 
     /**
+     * Generate a unique group key from a label.
+     * Uses sanitize_title for slug generation, appends a numeric suffix if key already exists.
+     *
+     * @param string $label Group label
+     * @param array  $existing_keys Existing group keys to check against
+     * @return string Generated unique key
+     */
+    public static function generate_group_key($label, $existing_keys = array())
+    {
+        $base_key = sanitize_title($label);
+        if (empty($base_key)) {
+            $base_key = 'group';
+        }
+
+        $key = $base_key;
+        $counter = 1;
+        while (in_array($key, $existing_keys, true)) {
+            $key = $base_key . '-' . $counter;
+            $counter++;
+        }
+
+        return $key;
+    }
+
+    /**
      * Get all banner groups
      * 
-     * @return array Array of group names
+     * @return array Associative array of group_key => group_label
      */
     public static function get_groups()
     {
@@ -317,137 +342,140 @@ class BannerManager
         
         // Ensure groups is an array
         if (!is_array($groups)) {
-            return array('default');
+            $groups = array();
         }
         
+        // Migrate from old flat array format ['default', 'home'] to key => label format
+        if (!empty($groups) && array_values($groups) === $groups) {
+            $migrated = array();
+            foreach ($groups as $name) {
+                $migrated[sanitize_key($name)] = $name;
+            }
+            $groups = $migrated;
+            update_option(self::OPTION_BANNER_GROUPS, $groups);
+        }
+
         // Always include default group
-        if (!in_array('default', $groups)) {
-            $groups[] = 'default';
+        if (!isset($groups['default'])) {
+            $groups = array_merge(array('default' => __('Default', WOOAPP_TEXT_DOMAIN)), $groups);
         }
         
-        return array_unique($groups);
+        return $groups;
+    }
+
+    /**
+     * Get group label by key
+     *
+     * @param string $group_key Group key
+     * @return string Group label, or empty string if not found
+     */
+    public static function get_group_label($group_key)
+    {
+        $groups = self::get_groups();
+        return isset($groups[$group_key]) ? $groups[$group_key] : '';
     }
 
     /**
      * Add a new banner group
      * 
-     * @param string $group_name Group name
-     * @return bool True on success, false on failure
+     * @param string $group_label Display label for the group
+     * @return array|false Array with 'key' and 'label' on success, false on failure
      */
-    public static function add_group($group_name)
+    public static function add_group($group_label)
     {
-        $group_name = sanitize_text_field($group_name);
+        $group_label = sanitize_text_field($group_label);
         
-        // Validate group name
-        if (empty($group_name)) {
+        // Validate group label
+        if (empty($group_label)) {
             return false;
         }
         
         $groups = self::get_groups();
         
-        // Group already exists
-        if (in_array($group_name, $groups)) {
+        // Generate unique key from label
+        $group_key = self::generate_group_key($group_label, array_keys($groups));
+        
+        // Key collision should not happen after generate_group_key, but guard anyway
+        if (isset($groups[$group_key])) {
             return false;
         }
         
-        $groups[] = $group_name;
+        $groups[$group_key] = $group_label;
         
-        return update_option(self::OPTION_BANNER_GROUPS, $groups);
+        if (update_option(self::OPTION_BANNER_GROUPS, $groups)) {
+            return array('key' => $group_key, 'label' => $group_label);
+        }
+
+        return false;
     }
 
     /**
      * Delete a banner group and all its banners
      * 
-     * @param string $group_name Group name
+     * @param string $group_key Group key
      * @return bool True on success, false on failure
      */
-    public static function delete_group($group_name)
+    public static function delete_group($group_key)
     {
         // Don't allow deleting default group
-        if ($group_name === 'default') {
+        if ($group_key === 'default') {
             return false;
         }
         
-        $group_name = sanitize_text_field($group_name);
+        $group_key = sanitize_key($group_key);
         
         // Delete all banners in this group
         $banners = self::get_banners();
         foreach ($banners as $banner) {
             $banner_group = isset($banner['group']) ? $banner['group'] : 'default';
-            if ($banner_group === $group_name) {
+            if ($banner_group === $group_key) {
                 self::delete_banner($banner['id']);
             }
         }
         
         // Remove from groups list
         $groups = self::get_groups();
-        $groups = array_filter($groups, function($g) use ($group_name) {
-            return $g !== $group_name;
-        });
-        
-        return update_option(self::OPTION_BANNER_GROUPS, array_values($groups));
-    }
-
-    /**
-     * Rename a banner group
-     * 
-     * @param string $old_name Old group name
-     * @param string $new_name New group name
-     * @return bool True on success, false on failure
-     */
-    public static function rename_group($old_name, $new_name)
-    {
-        // Don't allow renaming default group
-        if ($old_name === 'default') {
-            return false;
-        }
-        
-        $old_name = sanitize_text_field($old_name);
-        $new_name = sanitize_text_field($new_name);
-        
-        if (empty($new_name)) {
-            return false;
-        }
-        
-        $groups = self::get_groups();
-        
-        // Check if old group exists
-        if (!in_array($old_name, $groups)) {
-            return false;
-        }
-        
-        // Check if new name already exists
-        if (in_array($new_name, $groups)) {
-            return false;
-        }
-        
-        // Update group name in list
-        $groups = array_map(function($g) use ($old_name, $new_name) {
-            return $g === $old_name ? $new_name : $g;
-        }, $groups);
-        
-        // Update all banners in this group
-        $banners = self::get_banners();
-        foreach ($banners as &$banner) {
-            $banner_group = isset($banner['group']) ? $banner['group'] : 'default';
-            if ($banner_group === $old_name) {
-                $banner['group'] = $new_name;
-            }
-        }
-        
-        update_option(Constants::OPTION_APP_BANNERS, $banners);
+        unset($groups[$group_key]);
         
         return update_option(self::OPTION_BANNER_GROUPS, $groups);
     }
 
     /**
-     * Check if a group exists
+     * Update a banner group label (key stays immutable)
      * 
-     * @param string $group_name Group name
+     * @param string $group_key Group key
+     * @param string $new_label New display label
+     * @return bool True on success, false on failure
+     */
+    public static function update_group_label($group_key, $new_label)
+    {
+        $group_key = sanitize_key($group_key);
+        $new_label = sanitize_text_field($new_label);
+        
+        if (empty($new_label)) {
+            return false;
+        }
+        
+        $groups = self::get_groups();
+        
+        if (!isset($groups[$group_key])) {
+            return false;
+        }
+        
+        $groups[$group_key] = $new_label;
+        
+        return update_option(self::OPTION_BANNER_GROUPS, $groups);
+    }
+
+    /**
+     * Check if a group exists by key
+     * 
+     * @param string $group_key Group key
      * @return bool True if group exists, false otherwise
      */
-    public static function group_exists($group_name)
+    public static function group_exists($group_key)
     {
-        return in_array($group_name, self::get_groups());
+        $groups = self::get_groups();
+        return isset($groups[$group_key]);
     }
 }
