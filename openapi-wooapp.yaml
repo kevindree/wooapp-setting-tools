@@ -6,7 +6,7 @@ info:
     Provides endpoints for user authentication, app banners management,
     and category position configuration.
 
-    ## Authentication
+    **Authentication**
     - **OAuth 1.0** — Required for HTTP connections (userlogin, register, category-positions)
     - **Basic Auth** — Allowed over HTTPS only (userlogin, register, category-positions)
     - **No Auth** — Banner and banner-group GET endpoints are publicly accessible
@@ -16,10 +16,10 @@ info:
     name: Geehootek
 
 servers:
-  - url: https://example.com/wp-json/wooapp/v1
-    description: Production server
   - url: https://wordpress-dev.com/wp-json/wooapp/v1
     description: Development server
+  - url: https://tikamall.com/wp-json/wooapp/v1
+    description: Production server
 
 tags:
   - name: Authentication
@@ -30,6 +30,8 @@ tags:
     description: Banner group management
   - name: Category Positions
     description: Category position configuration
+  - name: Addresses
+    description: User address management (multiple addresses per user)
 
 paths:
   # ============================================
@@ -69,6 +71,29 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserProfile'
+              example:
+                id: 1
+                username: kevin
+                email: kevin@example.com
+                display_name: Kevin Zhu
+                nickname: kevin
+                first_name: Kevin
+                last_name: Zhu
+                phone: '1234567890'
+                addresses:
+                  - id: addr_6840abcd12345
+                    first_name: Kevin
+                    last_name: Zhu
+                    company: ''
+                    phone: '1234567890'
+                    address_1: 123 Main St
+                    address_2: Apt 4
+                    city: Dubai
+                    state: Dubai
+                    postcode: '00000'
+                    country: AE
+                    is_default: true
+                    created_at: '2025-06-05 12:00:00'
         '400':
           description: Missing username or password
           content:
@@ -151,6 +176,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserProfile'
+              example:
+                id: 2
+                username: newuser
+                email: newuser@example.com
+                display_name: New User
+                nickname: newuser
+                first_name: New
+                last_name: User
+                phone: '0987654321'
+                addresses: []
         '400':
           description: Missing required fields or invalid email
           content:
@@ -202,6 +237,204 @@ paths:
                       status: 409
         '500':
           description: User creation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+
+  # ============================================
+  # Addresses
+  # ============================================
+  /addresses:
+    get:
+      tags:
+        - Addresses
+      summary: Get all addresses for a user
+      security:
+        - OAuth1: []
+        - BasicAuth: []
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: WordPress user ID
+      responses:
+        '200':
+          description: List of addresses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Address'
+                  total:
+                    type: integer
+                    example: 2
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+    post:
+      tags:
+        - Addresses
+      summary: Add a new address
+      security:
+        - OAuth1: []
+        - BasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required:
+                    - user_id
+                    - address_1
+                    - country
+                  properties:
+                    user_id:
+                      type: integer
+                      example: 1
+                    is_default:
+                      type: boolean
+                      example: true
+                - $ref: '#/components/schemas/AddressFields'
+      responses:
+        '201':
+          description: Address created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Address added successfully
+                  data:
+                    $ref: '#/components/schemas/Address'
+        '400':
+          description: Missing required fields or invalid user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+
+  /addresses/{id}:
+    put:
+      tags:
+        - Addresses
+      summary: Update an existing address
+      security:
+        - OAuth1: []
+        - BasicAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Address ID (e.g. addr_6840abcd12345)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required:
+                    - user_id
+                  properties:
+                    user_id:
+                      type: integer
+                      example: 1
+                    is_default:
+                      type: boolean
+                - $ref: '#/components/schemas/AddressFields'
+      responses:
+        '200':
+          description: Address updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Address updated successfully
+                  data:
+                    $ref: '#/components/schemas/Address'
+        '400':
+          description: Invalid user_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+        '404':
+          description: Address not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+    delete:
+      tags:
+        - Addresses
+      summary: Delete an address
+      security:
+        - OAuth1: []
+        - BasicAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Address ID (e.g. addr_6840abcd12345)
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: WordPress user ID
+      responses:
+        '200':
+          description: Address deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Address deleted successfully
+        '400':
+          description: Invalid user_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+        '404':
+          description: Address not found
           content:
             application/json:
               schema:
@@ -469,6 +702,10 @@ components:
         phone:
           type: string
           example: '1234567890'
+        addresses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Address'
 
     Banner:
       type: object
@@ -586,6 +823,57 @@ components:
         phone:
           type: string
           example: '12345678'
+
+    AddressFields:
+      type: object
+      properties:
+        first_name:
+          type: string
+          example: Kevin
+        last_name:
+          type: string
+          example: Zhu
+        company:
+          type: string
+        phone:
+          type: string
+          example: '1234567890'
+        address_1:
+          type: string
+          example: 123 Main St
+        address_2:
+          type: string
+          example: Apt 4
+        city:
+          type: string
+          example: Dubai
+        state:
+          type: string
+          example: Dubai
+        postcode:
+          type: string
+          example: '00000'
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2 country code
+          example: AE
+
+    Address:
+      allOf:
+        - type: object
+          properties:
+            id:
+              type: string
+              description: Unique address identifier
+              example: addr_6840abcd12345
+            is_default:
+              type: boolean
+              example: true
+            created_at:
+              type: string
+              format: date-time
+              example: '2025-06-05 12:00:00'
+        - $ref: '#/components/schemas/AddressFields'
 
     WPError:
       type: object

@@ -56,6 +56,59 @@ class UserAuthEndpoints
                 'permission_callback' => array($this, 'check_api_permission'),
             )
         );
+
+        // GET /wooapp/v1/addresses - Get all addresses for a user
+        register_rest_route(
+            Constants::REST_NAMESPACE,
+            'addresses',
+            array(
+                'methods'             => 'GET',
+                'callback'            => array($this, 'get_addresses'),
+                'permission_callback' => array($this, 'check_api_permission'),
+                'args'                => array(
+                    'user_id' => array(
+                        'required'          => true,
+                        'type'              => 'integer',
+                        'validate_callback' => function($param) {
+                            return is_numeric($param) && (int)$param > 0;
+                        },
+                    ),
+                ),
+            )
+        );
+
+        // POST /wooapp/v1/addresses - Add an address
+        register_rest_route(
+            Constants::REST_NAMESPACE,
+            'addresses',
+            array(
+                'methods'             => 'POST',
+                'callback'            => array($this, 'add_address'),
+                'permission_callback' => array($this, 'check_api_permission'),
+            )
+        );
+
+        // PUT /wooapp/v1/addresses/{id} - Update an address
+        register_rest_route(
+            Constants::REST_NAMESPACE,
+            'addresses/(?P<id>[a-zA-Z0-9_]+)',
+            array(
+                'methods'             => 'PUT',
+                'callback'            => array($this, 'update_address'),
+                'permission_callback' => array($this, 'check_api_permission'),
+            )
+        );
+
+        // DELETE /wooapp/v1/addresses/{id} - Delete an address
+        register_rest_route(
+            Constants::REST_NAMESPACE,
+            'addresses/(?P<id>[a-zA-Z0-9_]+)',
+            array(
+                'methods'             => 'DELETE',
+                'callback'            => array($this, 'delete_address'),
+                'permission_callback' => array($this, 'check_api_permission'),
+            )
+        );
     }
 
     /**
@@ -107,6 +160,11 @@ class UserAuthEndpoints
         }
 
         // Authentication successful, return user info
+        $addresses = get_user_meta($user->ID, Constants::META_USER_ADDRESSES, true);
+        if (!is_array($addresses)) {
+            $addresses = array();
+        }
+
         $userInfo = array(
             'id'           => $user->ID,
             'username'     => $user->user_login,
@@ -116,6 +174,7 @@ class UserAuthEndpoints
             'first_name'   => get_user_meta($user->ID, 'first_name', true),
             'last_name'    => get_user_meta($user->ID, 'last_name', true),
             'phone'        => get_user_meta($user->ID, 'phone', true),
+            'addresses'    => array_values($addresses),
         );
 
         return new WP_REST_Response($userInfo, 200);
@@ -135,13 +194,7 @@ class UserAuthEndpoints
      *   "phone": "1234567890",         // required, must be unique
      *   "display_name": "Kevin Zhu",
      *   "first_name": "Kevin",
-     *   "last_name": "Zhu",
-     *   "billing": {
-     *     "phone": "12345678",
-     *     "country": "AE",
-     *     "city": "Dubai",
-     *     "address_1": "Some street 1"
-     *   }
+     *   "last_name": "Zhu"
      * }
      */
     public function customer_register(WP_REST_Request $request)
@@ -278,6 +331,11 @@ class UserAuthEndpoints
         // 6) Assemble return data
         $user = get_user_by('id', $user_id);
 
+        $addresses = get_user_meta($user_id, Constants::META_USER_ADDRESSES, true);
+        if (!is_array($addresses)) {
+            $addresses = array();
+        }
+
         $data = array(
             'id'           => $user_id,
             'username'     => $user->user_login,
@@ -287,8 +345,261 @@ class UserAuthEndpoints
             'first_name'   => get_user_meta($user->ID, 'first_name', true),
             'last_name'    => get_user_meta($user->ID, 'last_name', true),
             'phone'        => get_user_meta($user->ID, 'phone', true),
+            'addresses'    => array_values($addresses),
         );
 
         return new WP_REST_Response($data, 201); // 201 Created
+    }
+
+    // ============================================
+    // Address Management Methods
+    // ============================================
+
+    /**
+     * Allowed address fields
+     */
+    private static $address_fields = array(
+        'first_name', 'last_name', 'company', 'phone',
+        'address_1', 'address_2', 'city', 'state', 'postcode', 'country',
+    );
+
+    /**
+     * Get all addresses for a user
+     *
+     * Endpoint:
+     *   GET /wp-json/wooapp/v1/addresses?user_id=1
+     */
+    public function get_addresses(WP_REST_Request $request)
+    {
+        $user_id = (int) $request->get_param('user_id');
+
+        if (!get_user_by('id', $user_id)) {
+            return new WP_Error(
+                'user_not_found',
+                __('User not found', 'woocommerce'),
+                array('status' => 404)
+            );
+        }
+
+        $addresses = get_user_meta($user_id, Constants::META_USER_ADDRESSES, true);
+        if (!is_array($addresses)) {
+            $addresses = array();
+        }
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'data'    => array_values($addresses),
+            'total'   => count($addresses),
+        ), 200);
+    }
+
+    /**
+     * Add an address for a user
+     *
+     * Endpoint:
+     *   POST /wp-json/wooapp/v1/addresses
+     *
+     * Body example:
+     * {
+     *   "user_id": 1,
+     *   "first_name": "Kevin",
+     *   "last_name": "Zhu",
+     *   "phone": "1234567890",
+     *   "address_1": "123 Main St",
+     *   "address_2": "Apt 4",
+     *   "city": "Dubai",
+     *   "state": "Dubai",
+     *   "postcode": "00000",
+     *   "country": "AE",
+     *   "is_default": true
+     * }
+     */
+    public function add_address(WP_REST_Request $request)
+    {
+        $params  = $request->get_json_params();
+        $user_id = isset($params['user_id']) ? (int) $params['user_id'] : 0;
+
+        if (!$user_id || !get_user_by('id', $user_id)) {
+            return new WP_Error(
+                'user_not_found',
+                __('Valid user_id is required', 'woocommerce'),
+                array('status' => 400)
+            );
+        }
+
+        // Validate required fields
+        $address_1 = isset($params['address_1']) ? sanitize_text_field($params['address_1']) : '';
+        $country   = isset($params['country']) ? sanitize_text_field($params['country']) : '';
+        if (empty($address_1) || empty($country)) {
+            return new WP_Error(
+                'missing_fields',
+                __('address_1 and country are required', 'woocommerce'),
+                array('status' => 400)
+            );
+        }
+
+        // Build address entry
+        $address = array(
+            'id' => 'addr_' . uniqid(),
+        );
+        foreach (self::$address_fields as $field) {
+            $address[$field] = isset($params[$field]) ? sanitize_text_field($params[$field]) : '';
+        }
+        $is_default = !empty($params['is_default']);
+        $address['is_default'] = $is_default;
+        $address['created_at'] = current_time('mysql');
+
+        // Load existing addresses
+        $addresses = get_user_meta($user_id, Constants::META_USER_ADDRESSES, true);
+        if (!is_array($addresses)) {
+            $addresses = array();
+        }
+
+        // If this is the first address or marked as default, clear other defaults
+        if ($is_default || empty($addresses)) {
+            foreach ($addresses as &$existing) {
+                $existing['is_default'] = false;
+            }
+            unset($existing);
+            $address['is_default'] = true;
+        }
+
+        $addresses[] = $address;
+        update_user_meta($user_id, Constants::META_USER_ADDRESSES, $addresses);
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'message' => __('Address added successfully', 'woocommerce'),
+            'data'    => $address,
+        ), 201);
+    }
+
+    /**
+     * Update an existing address
+     *
+     * Endpoint:
+     *   PUT /wp-json/wooapp/v1/addresses/{id}
+     *
+     * Body example:
+     * {
+     *   "user_id": 1,
+     *   "city": "Abu Dhabi",
+     *   "is_default": true
+     * }
+     */
+    public function update_address(WP_REST_Request $request)
+    {
+        $address_id = $request->get_param('id');
+        $params     = $request->get_json_params();
+        $user_id    = isset($params['user_id']) ? (int) $params['user_id'] : 0;
+
+        if (!$user_id || !get_user_by('id', $user_id)) {
+            return new WP_Error(
+                'user_not_found',
+                __('Valid user_id is required', 'woocommerce'),
+                array('status' => 400)
+            );
+        }
+
+        $addresses = get_user_meta($user_id, Constants::META_USER_ADDRESSES, true);
+        if (!is_array($addresses)) {
+            $addresses = array();
+        }
+
+        $found_index = null;
+        foreach ($addresses as $index => $addr) {
+            if ($addr['id'] === $address_id) {
+                $found_index = $index;
+                break;
+            }
+        }
+
+        if ($found_index === null) {
+            return new WP_Error(
+                'address_not_found',
+                __('Address not found', 'woocommerce'),
+                array('status' => 404)
+            );
+        }
+
+        // Update allowed fields
+        foreach (self::$address_fields as $field) {
+            if (isset($params[$field])) {
+                $addresses[$found_index][$field] = sanitize_text_field($params[$field]);
+            }
+        }
+
+        // Handle default flag
+        if (isset($params['is_default']) && $params['is_default']) {
+            foreach ($addresses as $i => &$addr) {
+                $addr['is_default'] = ($i === $found_index);
+            }
+            unset($addr);
+        }
+
+        update_user_meta($user_id, Constants::META_USER_ADDRESSES, $addresses);
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'message' => __('Address updated successfully', 'woocommerce'),
+            'data'    => $addresses[$found_index],
+        ), 200);
+    }
+
+    /**
+     * Delete an address
+     *
+     * Endpoint:
+     *   DELETE /wp-json/wooapp/v1/addresses/{id}?user_id=1
+     */
+    public function delete_address(WP_REST_Request $request)
+    {
+        $address_id = $request->get_param('id');
+        $user_id    = (int) $request->get_param('user_id');
+
+        if (!$user_id || !get_user_by('id', $user_id)) {
+            return new WP_Error(
+                'user_not_found',
+                __('Valid user_id is required', 'woocommerce'),
+                array('status' => 400)
+            );
+        }
+
+        $addresses = get_user_meta($user_id, Constants::META_USER_ADDRESSES, true);
+        if (!is_array($addresses)) {
+            $addresses = array();
+        }
+
+        $found_index = null;
+        $was_default = false;
+        foreach ($addresses as $index => $addr) {
+            if ($addr['id'] === $address_id) {
+                $found_index = $index;
+                $was_default = !empty($addr['is_default']);
+                break;
+            }
+        }
+
+        if ($found_index === null) {
+            return new WP_Error(
+                'address_not_found',
+                __('Address not found', 'woocommerce'),
+                array('status' => 404)
+            );
+        }
+
+        array_splice($addresses, $found_index, 1);
+
+        // If deleted address was default, promote the first remaining address
+        if ($was_default && !empty($addresses)) {
+            $addresses[0]['is_default'] = true;
+        }
+
+        update_user_meta($user_id, Constants::META_USER_ADDRESSES, $addresses);
+
+        return new WP_REST_Response(array(
+            'success' => true,
+            'message' => __('Address deleted successfully', 'woocommerce'),
+        ), 200);
     }
 }

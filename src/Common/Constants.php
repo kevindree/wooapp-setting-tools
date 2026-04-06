@@ -60,6 +60,11 @@ class Constants
     const META_API_NONCE = 'wooapp_api_nonce';
 
     /**
+     * User address storage
+     */
+    const META_USER_ADDRESSES = 'wooapp_user_addresses';
+
+    /**
      * Error codes
      */
     const ERROR_INVALID_AUTH = 'wooapp_invalid_auth';
