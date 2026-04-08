@@ -107,6 +107,15 @@ class UserAuthEndpoints
                 'methods'             => 'DELETE',
                 'callback'            => array($this, 'delete_address'),
                 'permission_callback' => array($this, 'check_api_permission'),
+                'args'                => array(
+                    'user_id' => array(
+                        'required'          => true,
+                        'type'              => 'integer',
+                        'validate_callback' => function($param) {
+                            return is_numeric($param) && (int)$param > 0;
+                        },
+                    ),
+                ),
             )
         );
     }

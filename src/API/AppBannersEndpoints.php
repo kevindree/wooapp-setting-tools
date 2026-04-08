@@ -110,10 +110,11 @@ class AppBannersEndpoints
                 'total' => count($formatted_banners),
             ));
         } catch (\Exception $e) {
-            return rest_ensure_response(array(
-                'success' => false,
-                'message' => $e->getMessage(),
-            ));
+            return new \WP_Error(
+                'internal_error',
+                $e->getMessage(),
+                array('status' => 500)
+            );
         }
     }
 
@@ -130,10 +131,11 @@ class AppBannersEndpoints
             $banner = BannerManager::get_banner($banner_id);
 
             if (!$banner) {
-                return rest_ensure_response(array(
-                    'success' => false,
-                    'message' => __('Banner not found.', WOOAPP_TEXT_DOMAIN),
-                ));
+                return new \WP_Error(
+                    'banner_not_found',
+                    __('Banner not found.', WOOAPP_TEXT_DOMAIN),
+                    array('status' => 404)
+                );
             }
 
             return rest_ensure_response(array(
@@ -141,10 +143,11 @@ class AppBannersEndpoints
                 'data' => $this->format_banner_response($banner),
             ));
         } catch (\Exception $e) {
-            return rest_ensure_response(array(
-                'success' => false,
-                'message' => $e->getMessage(),
-            ));
+            return new \WP_Error(
+                'internal_error',
+                $e->getMessage(),
+                array('status' => 500)
+            );
         }
     }
 
@@ -210,10 +213,11 @@ class AppBannersEndpoints
                 'total' => count($formatted),
             ));
         } catch (\Exception $e) {
-            return rest_ensure_response(array(
-                'success' => false,
-                'message' => $e->getMessage(),
-            ));
+            return new \WP_Error(
+                'internal_error',
+                $e->getMessage(),
+                array('status' => 500)
+            );
         }
     }
 
@@ -230,10 +234,11 @@ class AppBannersEndpoints
             $groups = BannerManager::get_groups();
 
             if (!isset($groups[$banner_group_key])) {
-                return rest_ensure_response(array(
-                    'success' => false,
-                    'message' => __('Banner group not found.', WOOAPP_TEXT_DOMAIN),
-                ));
+                return new \WP_Error(
+                    'group_not_found',
+                    __('Banner group not found.', WOOAPP_TEXT_DOMAIN),
+                    array('status' => 404)
+                );
             }
 
             $all_banners = BannerManager::get_banners($banner_group_key);
@@ -253,10 +258,11 @@ class AppBannersEndpoints
                 ),
             ));
         } catch (\Exception $e) {
-            return rest_ensure_response(array(
-                'success' => false,
-                'message' => $e->getMessage(),
-            ));
+            return new \WP_Error(
+                'internal_error',
+                $e->getMessage(),
+                array('status' => 500)
+            );
         }
     }
 }

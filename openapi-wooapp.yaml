@@ -24,8 +24,6 @@ servers:
 tags:
   - name: Authentication
     description: User login and registration
-  - name: Banners
-    description: App banner management
   - name: Banner Groups
     description: Banner group management
   - name: Category Positions
@@ -446,7 +444,7 @@ paths:
   /banners:
     get:
       tags:
-        - Banners
+        - Banner Groups
       summary: Get all banners
       description: |
         Retrieve all banners. Optionally filter by group key.
@@ -478,11 +476,22 @@ paths:
                   total:
                     type: integer
                     example: 4
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+              example:
+                code: internal_error
+                message: An unexpected error occurred
+                data:
+                  status: 500
 
   /banners/{id}:
     get:
       tags:
-        - Banners
+        - Banner Groups
       summary: Get a single banner
       description: Retrieve a specific banner by its ID.
       operationId: getBanner
@@ -520,19 +529,28 @@ paths:
                   order: 0
                   created_at: '2026-04-04 23:20:15'
                   updated_at: '2026-04-04 23:20:15'
-        '200 ':
+        '404':
           description: Banner not found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  message:
-                    type: string
-                    example: Banner not found.
+                $ref: '#/components/schemas/WPError'
+              example:
+                code: banner_not_found
+                message: Banner not found.
+                data:
+                  status: 404
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+              example:
+                code: internal_error
+                message: An unexpected error occurred
+                data:
+                  status: 500
 
   # ============================================
   # Banner Groups
@@ -581,6 +599,17 @@ paths:
                     label: Home Page Main
                     banners: []
                 total: 2
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+              example:
+                code: internal_error
+                message: An unexpected error occurred
+                data:
+                  status: 500
 
   /banner-groups/{banner_group_key}:
     get:
@@ -626,19 +655,28 @@ paths:
                       order: 0
                       created_at: '2025-06-01 10:00:00'
                       updated_at: '2025-06-02 12:00:00'
-        '200 ':
+        '404':
           description: Banner group not found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: false
-                  message:
-                    type: string
-                    example: Banner group not found.
+                $ref: '#/components/schemas/WPError'
+              example:
+                code: group_not_found
+                message: Banner group not found.
+                data:
+                  status: 404
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+              example:
+                code: internal_error
+                message: An unexpected error occurred
+                data:
+                  status: 500
 
   # ============================================
   # Category Positions
@@ -662,26 +700,49 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties:
-                  $ref: '#/components/schemas/CategoryPosition'
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    additionalProperties:
+                      $ref: '#/components/schemas/CategoryPosition'
+                  total:
+                    type: integer
+                    example: 2
               example:
-                banner:
-                  label: Banner Section
-                  category_ids: [15, 23]
-                  categories:
-                    - id: 15
-                      name: Electronics
-                      slug: electronics
-                    - id: 23
-                      name: Clothing
-                      slug: clothing
-                featured:
-                  label: Featured Products
-                  category_ids: [15]
-                  categories:
-                    - id: 15
-                      name: Electronics
-                      slug: electronics
+                success: true
+                data:
+                  banner:
+                    label: Banner Section
+                    category_ids: [15, 23]
+                    categories:
+                      - id: 15
+                        name: Electronics
+                        slug: electronics
+                      - id: 23
+                        name: Clothing
+                        slug: clothing
+                  featured:
+                    label: Featured Products
+                    category_ids: [15]
+                    categories:
+                      - id: 15
+                        name: Electronics
+                        slug: electronics
+                total: 2
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+              example:
+                code: internal_error
+                message: An unexpected error occurred
+                data:
+                  status: 500
 
   /category-positions/{position_key}:
     get:
@@ -708,24 +769,44 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CategoryPosition'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CategoryPosition'
               example:
-                label: Banner Section
-                category_ids: [15]
-                categories:
-                  - id: 15
-                    name: Electronics
-                    slug: electronics
+                success: true
+                data:
+                  label: Banner Section
+                  category_ids: [15]
+                  categories:
+                    - id: 15
+                      name: Electronics
+                      slug: electronics
         '404':
           description: Position not found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: Position not found
+                $ref: '#/components/schemas/WPError'
+              example:
+                code: position_not_found
+                message: Position not found
+                data:
+                  status: 404
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+              example:
+                code: internal_error
+                message: An unexpected error occurred
+                data:
+                  status: 500
 
 # ============================================
 # Components

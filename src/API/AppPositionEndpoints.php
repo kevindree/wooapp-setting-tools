@@ -79,14 +79,72 @@ class AppPositionEndpoints
      */
     public function get_category_positions(WP_REST_Request $request)
     {
-        $positions = CategoryPositionManager::get_all_positions();
+        try {
+            $positions = CategoryPositionManager::get_all_positions();
 
-        // Transform category IDs to include category details
-        $result = array();
-        foreach ($positions as $position_key => $position_data) {
+            // Transform category IDs to include category details
+            $result = array();
+            foreach ($positions as $position_key => $position_data) {
+                $categories = array();
+                if (!empty($position_data['categories'])) {
+                    foreach ($position_data['categories'] as $category_id) {
+                        $category = get_term($category_id, 'product_cat');
+                        if ($category && !is_wp_error($category)) {
+                            $categories[] = array(
+                                'id'   => $category->term_id,
+                                'name' => $category->name,
+                                'slug' => $category->slug,
+                            );
+                        }
+                    }
+                }
+
+                $result[$position_key] = array(
+                    'label'        => $position_data['label'],
+                    'category_ids' => !empty($position_data['categories']) ? array_map('intval', $position_data['categories']) : array(),
+                    'categories'   => $categories,
+                );
+            }
+
+            return new WP_REST_Response(array(
+                'success' => true,
+                'data'    => $result,
+                'total'   => count($result),
+            ), 200);
+        } catch (\Exception $e) {
+            return new \WP_Error(
+                'internal_error',
+                $e->getMessage(),
+                array('status' => 500)
+            );
+        }
+    }
+
+    /**
+     * Get categories for a specific position
+     *
+     * @param WP_REST_Request $request
+     * @return WP_REST_Response
+     */
+    public function get_position_categories(WP_REST_Request $request)
+    {
+        try {
+            $position_key = $request->get_param('position_key');
+
+            $label = CategoryPositionManager::get_position_label($position_key);
+            if (empty($label)) {
+                return new \WP_Error(
+                    'position_not_found',
+                    __('Position not found', 'woocommerce'),
+                    array('status' => 404)
+                );
+            }
+
+            $category_ids = CategoryPositionManager::get_position_categories($position_key);
             $categories = array();
-            if (!empty($position_data['categories'])) {
-                foreach ($position_data['categories'] as $category_id) {
+
+            if (!empty($category_ids)) {
+                foreach ($category_ids as $category_id) {
                     $category = get_term($category_id, 'product_cat');
                     if ($category && !is_wp_error($category)) {
                         $categories[] = array(
@@ -98,57 +156,20 @@ class AppPositionEndpoints
                 }
             }
 
-            $result[$position_key] = array(
-                'label'        => $position_data['label'],
-                'category_ids' => !empty($position_data['categories']) ? array_map('intval', $position_data['categories']) : array(),
-                'categories'   => $categories,
+            return new WP_REST_Response(array(
+                'success'      => true,
+                'data'         => array(
+                    'label'        => $label,
+                    'category_ids' => array_map('intval', $category_ids),
+                    'categories'   => $categories,
+                ),
+            ), 200);
+        } catch (\Exception $e) {
+            return new \WP_Error(
+                'internal_error',
+                $e->getMessage(),
+                array('status' => 500)
             );
         }
-
-        return new WP_REST_Response($result, 200);
-    }
-
-    /**
-     * Get categories for a specific position
-     *
-     * @param WP_REST_Request $request
-     * @return WP_REST_Response
-     */
-    public function get_position_categories(WP_REST_Request $request)
-    {
-        $position_key = $request->get_param('position_key');
-
-        $label = CategoryPositionManager::get_position_label($position_key);
-        if (empty($label)) {
-            return new WP_REST_Response(
-                array('error' => 'Position not found'),
-                404
-            );
-        }
-
-        $category_ids = CategoryPositionManager::get_position_categories($position_key);
-        $categories = array();
-
-        if (!empty($category_ids)) {
-            foreach ($category_ids as $category_id) {
-                $category = get_term($category_id, 'product_cat');
-                if ($category && !is_wp_error($category)) {
-                    $categories[] = array(
-                        'id'   => $category->term_id,
-                        'name' => $category->name,
-                        'slug' => $category->slug,
-                    );
-                }
-            }
-        }
-
-        return new WP_REST_Response(
-            array(
-                'label'        => $label,
-                'category_ids' => array_map('intval', $category_ids),
-                'categories'   => $categories,
-            ),
-            200
-        );
     }
 }
