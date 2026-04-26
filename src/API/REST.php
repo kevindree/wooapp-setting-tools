@@ -34,6 +34,11 @@ class REST extends AbstractService
     private $app_banners_endpoints;
 
     /**
+     * Social authentication endpoints instance
+     */
+    private $social_auth_endpoints;
+
+    /**
      * Boot service
      */
     public function boot()
@@ -41,6 +46,7 @@ class REST extends AbstractService
         $this->user_auth_endpoints = new UserAuthEndpoints();
         $this->app_position_endpoints = new AppPositionEndpoints();
         $this->app_banners_endpoints = new AppBannersEndpoints();
+        $this->social_auth_endpoints = new SocialAuthEndpoints();
         parent::boot();
     }
 
@@ -65,5 +71,8 @@ class REST extends AbstractService
 
         // Register app banners and banner groups endpoints
         $this->app_banners_endpoints->register_routes();
+
+        // Register social authentication endpoints
+        $this->social_auth_endpoints->register_routes();
     }
 }

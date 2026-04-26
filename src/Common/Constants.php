@@ -65,6 +65,12 @@ class Constants
     const META_USER_ADDRESSES = 'wooapp_user_addresses';
 
     /**
+     * Social authentication
+     */
+    const SOCIAL_META_PREFIX = '_wooapp_social_';
+    const SOCIAL_PROVIDERS = array('google', 'facebook', 'apple', 'microsoft', 'wechat');
+
+    /**
      * Error codes
      */
     const ERROR_INVALID_AUTH = 'wooapp_invalid_auth';

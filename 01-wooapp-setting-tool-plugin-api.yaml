@@ -30,6 +30,8 @@ tags:
     description: Category position configuration
   - name: Addresses
     description: User address management (multiple addresses per user)
+  - name: Social Authentication
+    description: Login/register via Google, Facebook, Apple, or Microsoft
 
 paths:
   # ============================================
@@ -239,6 +241,331 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/WPError'
+
+  # ============================================
+  # Social Authentication
+  # ============================================
+  /social-login:
+    post:
+      tags:
+        - Social Authentication
+      summary: Social login or register
+      description: |
+        Authenticate or register a user via a social provider (Google, Facebook, Apple, Microsoft).
+        - If the social account is already linked to a user, that user is logged in (200).
+        - If the email matches an existing user, the social account is linked and the user is logged in (200).
+        - If no matching user exists, a new customer account is created and the social account is linked (201).
+
+        **Token types by provider:**
+        - **Google**: ID token (JWT) from Google Sign-In
+        - **Facebook**: Access token from Facebook Login
+        - **Apple**: ID token (JWT) from Sign in with Apple
+        - **Microsoft**: Access token from Microsoft Identity Platform
+        - **WeChat**: JSON string `{"access_token":"...","openid":"..."}` from WeChat OAuth2
+
+        For Apple Sign In, `first_name` and `last_name` should be sent on the first authentication
+        since Apple only provides the user's name during the initial sign-in.
+      operationId: socialLogin
+      security:
+        - OAuth1: []
+        - BasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - provider
+                - token
+              properties:
+                provider:
+                  type: string
+                  enum: [google, facebook, apple, microsoft, wechat]
+                  description: Social authentication provider
+                  example: google
+                token:
+                  type: string
+                  description: ID token (Google/Apple), access token (Facebook/Microsoft), or JSON credentials (WeChat)
+                  example: eyJhbGciOiJSUzI1NiIs...
+                first_name:
+                  type: string
+                  description: Optional, primarily for Apple (name only sent on first auth)
+                  example: Kevin
+                last_name:
+                  type: string
+                  description: Optional, primarily for Apple
+                  example: Zhu
+      responses:
+        '200':
+          description: Login successful (existing user)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialUserProfile'
+              example:
+                id: 1
+                username: kevin
+                email: kevin@example.com
+                display_name: Kevin Zhu
+                nickname: kevin
+                first_name: Kevin
+                last_name: Zhu
+                phone: '1234567890'
+                addresses: []
+                social_accounts:
+                  - provider: google
+                    social_id: '115823487601098765432'
+                    email: kevin@gmail.com
+                    picture: 'https://lh3.googleusercontent.com/a/photo'
+                    linked_at: '2026-04-09 12:00:00'
+                auth_method: google
+                is_new_user: false
+        '201':
+          description: Registration successful (new user created)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialUserProfile'
+        '400':
+          description: Missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+              examples:
+                missing_fields:
+                  summary: Missing required fields
+                  value:
+                    code: missing_fields
+                    message: provider and token are required
+                    data:
+                      status: 400
+                invalid_provider:
+                  summary: Unsupported provider
+                  value:
+                    code: invalid_provider
+                    message: 'Unsupported provider. Allowed: google, facebook, apple, microsoft, wechat'
+                    data:
+                      status: 400
+        '401':
+          description: Token verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+              example:
+                code: invalid_token
+                message: Invalid Google token
+                data:
+                  status: 401
+
+  /social-link:
+    post:
+      tags:
+        - Social Authentication
+      summary: Link social account to existing user
+      description: |
+        Link a social provider account to an existing WordPress/WooCommerce user.
+        Verifies the provider token and creates the association.
+        Returns an error if the social account is already linked to a different user.
+      operationId: socialLink
+      security:
+        - OAuth1: []
+        - BasicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - provider
+                - token
+              properties:
+                user_id:
+                  type: integer
+                  description: WordPress user ID
+                  example: 1
+                provider:
+                  type: string
+                  enum: [google, facebook, apple, microsoft, wechat]
+                  example: facebook
+                token:
+                  type: string
+                  description: Provider token
+                  example: EAAGm0PX4ZCps...
+      responses:
+        '200':
+          description: Social account linked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Facebook account linked successfully
+                  social_accounts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SocialAccount'
+        '400':
+          description: Missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+        '409':
+          description: Social account already linked to another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+              example:
+                code: social_account_taken
+                message: This social account is already linked to another user
+                data:
+                  status: 409
+
+  /social-accounts:
+    get:
+      tags:
+        - Social Authentication
+      summary: List linked social accounts
+      description: Get all social provider accounts linked to a user.
+      operationId: getSocialAccounts
+      security:
+        - OAuth1: []
+        - BasicAuth: []
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: WordPress user ID
+          example: 1
+      responses:
+        '200':
+          description: List of linked social accounts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SocialAccount'
+                  total:
+                    type: integer
+                    example: 2
+              example:
+                success: true
+                data:
+                  - provider: google
+                    social_id: '115823487601098765432'
+                    email: kevin@gmail.com
+                    picture: 'https://lh3.googleusercontent.com/a/photo'
+                    linked_at: '2026-04-09 12:00:00'
+                  - provider: apple
+                    social_id: '001234.abcdef1234567890.1234'
+                    email: kevin@privaterelay.appleid.com
+                    picture: ''
+                    linked_at: '2026-04-09 13:00:00'
+                total: 2
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+
+  /social-accounts/{provider}:
+    delete:
+      tags:
+        - Social Authentication
+      summary: Unlink social account
+      description: Remove the link between a social provider account and a user.
+      operationId: unlinkSocialAccount
+      security:
+        - OAuth1: []
+        - BasicAuth: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [google, facebook, apple, microsoft, wechat]
+          description: Social provider to unlink
+          example: facebook
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: WordPress user ID
+          example: 1
+      responses:
+        '200':
+          description: Social account unlinked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Facebook account unlinked successfully
+                  social_accounts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SocialAccount'
+        '400':
+          description: Invalid provider
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+        '404':
+          description: User not found or account not linked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WPError'
+              examples:
+                user_not_found:
+                  summary: User not found
+                  value:
+                    code: user_not_found
+                    message: User not found
+                    data:
+                      status: 404
+                not_linked:
+                  summary: Account not linked
+                  value:
+                    code: not_linked
+                    message: Facebook account is not linked
+                    data:
+                      status: 404
 
   # ============================================
   # Addresses
@@ -859,6 +1186,54 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Address'
+
+    SocialUserProfile:
+      description: User profile returned by social login, extends UserProfile with social fields
+      allOf:
+        - $ref: '#/components/schemas/UserProfile'
+        - type: object
+          properties:
+            social_accounts:
+              type: array
+              description: All social provider accounts linked to this user
+              items:
+                $ref: '#/components/schemas/SocialAccount'
+            auth_method:
+              type: string
+              description: The authentication method used for this login
+              enum: [google, facebook, apple, microsoft, wechat]
+              example: google
+            is_new_user:
+              type: boolean
+              description: Whether a new account was created during this request
+              example: false
+
+    SocialAccount:
+      type: object
+      description: A linked social provider account
+      properties:
+        provider:
+          type: string
+          enum: [google, facebook, apple, microsoft, wechat]
+          description: Social provider name
+          example: google
+        social_id:
+          type: string
+          description: User ID from the social provider
+          example: '115823487601098765432'
+        email:
+          type: string
+          format: email
+          description: Email from the social provider
+          example: kevin@gmail.com
+        picture:
+          type: string
+          description: Profile picture URL from the social provider
+          example: 'https://lh3.googleusercontent.com/a/photo'
+        linked_at:
+          type: string
+          description: When the social account was linked
+          example: '2026-04-09 12:00:00'
 
     Banner:
       type: object
