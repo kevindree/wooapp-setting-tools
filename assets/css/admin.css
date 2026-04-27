@@ -18,3 +18,68 @@
     border-bottom: 2px solid #e5e5e5;
     padding-bottom: 10px;
 }
+
+/* API base URL */
+.wooapp-api-base {
+    font-size: 13px;
+}
+
+.wooapp-api-base code {
+    font-size: 13px;
+    background: #f0f0f1;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+/* Endpoint table */
+.wooapp-endpoint-table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.wooapp-endpoint-table th {
+    text-align: left;
+    font-weight: 600;
+}
+
+.wooapp-col-method {
+    width: 90px;
+}
+
+.wooapp-col-path {
+    width: 40%;
+}
+
+.wooapp-endpoint-path {
+    font-size: 12px;
+    background: #f6f7f7;
+    padding: 2px 6px;
+    border-radius: 3px;
+    word-break: break-all;
+}
+
+/* HTTP method badges */
+.wooapp-method {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #fff;
+    text-transform: uppercase;
+}
+
+.wooapp-method-get    { background-color: #00a32a; }
+.wooapp-method-post   { background-color: #dba617; }
+.wooapp-method-put    { background-color: #2271b1; }
+.wooapp-method-delete { background-color: #d63638; }
+
+/* Tab navigation */
+.wooapp-nav-tabs {
+    margin-bottom: 0;
+}
+
+.wooapp-container {
+    padding-top: 20px;
+}

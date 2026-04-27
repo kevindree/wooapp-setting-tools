@@ -101,7 +101,24 @@ class Admin extends AbstractService
      */
     public function enqueueAssets($hook_suffix)
     {
-        if ($hook_suffix !== 'wooapp-settings_page_wooapp-category-positions' && 
+        $allowed_hooks = array(
+            'toplevel_page_wooapp-settings',
+            'wooapp-settings_page_wooapp-category-positions',
+            'wooapp-settings_page_wooapp-app-banners',
+        );
+
+        if (!in_array($hook_suffix, $allowed_hooks, true)) {
+            return;
+        }
+
+        wp_enqueue_style(
+            'wooapp-admin',
+            WOOAPP_PLUGIN_URL . '/assets/css/admin.css',
+            array(),
+            Constants::PLUGIN_VERSION
+        );
+
+        if ($hook_suffix !== 'wooapp-settings_page_wooapp-category-positions' &&
             $hook_suffix !== 'wooapp-settings_page_wooapp-app-banners') {
             return;
         }
@@ -168,12 +185,106 @@ class Admin extends AbstractService
      */
     public function renderSettingsPage()
     {
+        $base_url = esc_url(get_rest_url(null, 'wooapp/v1'));
+
+        $endpoint_groups = array(
+            array(
+                'title'     => __('User Authentication', WOOAPP_TEXT_DOMAIN),
+                'endpoints' => array(
+                    array('method' => 'POST',   'path' => '/userlogin',           'desc' => __('User login', WOOAPP_TEXT_DOMAIN)),
+                    array('method' => 'POST',   'path' => '/register',            'desc' => __('User registration', WOOAPP_TEXT_DOMAIN)),
+                    array('method' => 'GET',    'path' => '/addresses',           'desc' => __('Get user address list', WOOAPP_TEXT_DOMAIN)),
+                    array('method' => 'POST',   'path' => '/addresses',           'desc' => __('Add address', WOOAPP_TEXT_DOMAIN)),
+                    array('method' => 'PUT',    'path' => '/addresses/{id}',      'desc' => __('Update address', WOOAPP_TEXT_DOMAIN)),
+                    array('method' => 'DELETE', 'path' => '/addresses/{id}',      'desc' => __('Delete address', WOOAPP_TEXT_DOMAIN)),
+                ),
+            ),
+            array(
+                'title'     => __('Category Positions', WOOAPP_TEXT_DOMAIN),
+                'endpoints' => array(
+                    array('method' => 'GET', 'path' => '/category-positions',                  'desc' => __('Get all category positions', WOOAPP_TEXT_DOMAIN)),
+                    array('method' => 'GET', 'path' => '/category-positions/{position_key}',   'desc' => __('Get categories for a specific position', WOOAPP_TEXT_DOMAIN)),
+                ),
+            ),
+            array(
+                'title'     => __('App Banners', WOOAPP_TEXT_DOMAIN),
+                'endpoints' => array(
+                    array('method' => 'GET', 'path' => '/banners',                             'desc' => __('Get all banners', WOOAPP_TEXT_DOMAIN)),
+                    array('method' => 'GET', 'path' => '/banners/{id}',                        'desc' => __('Get a single banner', WOOAPP_TEXT_DOMAIN)),
+                    array('method' => 'GET', 'path' => '/banner-groups',                       'desc' => __('Get all banner groups', WOOAPP_TEXT_DOMAIN)),
+                    array('method' => 'GET', 'path' => '/banner-groups/{banner_group_key}',    'desc' => __('Get a specific banner group', WOOAPP_TEXT_DOMAIN)),
+                ),
+            ),
+            array(
+                'title'     => __('Social Authentication', WOOAPP_TEXT_DOMAIN),
+                'endpoints' => array(
+                    array('method' => 'POST',   'path' => '/social-login',                    'desc' => __('Social login or register', WOOAPP_TEXT_DOMAIN)),
+                    array('method' => 'POST',   'path' => '/social-link',                     'desc' => __('Link social account to existing user', WOOAPP_TEXT_DOMAIN)),
+                    array('method' => 'GET',    'path' => '/social-accounts',                 'desc' => __('List linked social accounts for a user', WOOAPP_TEXT_DOMAIN)),
+                    array('method' => 'DELETE', 'path' => '/social-accounts/{provider}',      'desc' => __('Unlink a social account', WOOAPP_TEXT_DOMAIN)),
+                ),
+            ),
+        );
+        $active_tab = isset($_GET['tab']) ? sanitize_key($_GET['tab']) : 'general';
+        $page_slug  = 'wooapp-settings';
         ?>
         <div class="wrap">
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
+
+            <nav class="nav-tab-wrapper wooapp-nav-tabs">
+                <a href="<?php echo esc_url(admin_url('admin.php?page=' . $page_slug . '&tab=general')); ?>"
+                   class="nav-tab<?php echo $active_tab === 'general' ? ' nav-tab-active' : ''; ?>">
+                    <?php esc_html_e('General', WOOAPP_TEXT_DOMAIN); ?>
+                </a>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=' . $page_slug . '&tab=rest-api')); ?>"
+                   class="nav-tab<?php echo $active_tab === 'rest-api' ? ' nav-tab-active' : ''; ?>">
+                    <?php esc_html_e('REST API Endpoints', WOOAPP_TEXT_DOMAIN); ?>
+                </a>
+            </nav>
+
             <div class="wooapp-container">
-                <p><?php esc_html_e('WooApp Settings will be implemented here', WOOAPP_TEXT_DOMAIN); ?></p>
-                <p><?php esc_html_e('API Keys are managed through WooCommerce Settings', WOOAPP_TEXT_DOMAIN); ?></p>
+                <?php if ($active_tab === 'general') : ?>
+
+                <?php elseif ($active_tab === 'rest-api') : ?>
+
+                <div class="wooapp-panel">
+                    <h2><?php esc_html_e('REST API Endpoints', WOOAPP_TEXT_DOMAIN); ?></h2>
+                    <p class="wooapp-api-base">
+                        <?php esc_html_e('Base URL:', WOOAPP_TEXT_DOMAIN); ?>
+                        <code><?php echo $base_url; ?></code>
+                    </p>
+                    <p class="description"><?php esc_html_e('API Keys are managed through WooCommerce Settings → Advanced → REST API.', WOOAPP_TEXT_DOMAIN); ?></p>
+                </div>
+
+                <?php foreach ($endpoint_groups as $group) : ?>
+                <div class="wooapp-panel">
+                    <h2><?php echo esc_html($group['title']); ?></h2>
+                    <table class="wooapp-endpoint-table widefat striped">
+                        <thead>
+                            <tr>
+                                <th class="wooapp-col-method"><?php esc_html_e('Method', WOOAPP_TEXT_DOMAIN); ?></th>
+                                <th class="wooapp-col-path"><?php esc_html_e('Endpoint', WOOAPP_TEXT_DOMAIN); ?></th>
+                                <th><?php esc_html_e('Description', WOOAPP_TEXT_DOMAIN); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($group['endpoints'] as $ep) : ?>
+                            <tr>
+                                <td>
+                                    <span class="wooapp-method wooapp-method-<?php echo esc_attr(strtolower($ep['method'])); ?>">
+                                        <?php echo esc_html($ep['method']); ?>
+                                    </span>
+                                </td>
+                                <td><code class="wooapp-endpoint-path"><?php echo esc_html('wooapp/v1' . $ep['path']); ?></code></td>
+                                <td><?php echo esc_html($ep['desc']); ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php endforeach; ?>
+
+                <?php endif; ?>
             </div>
         </div>
         <?php
