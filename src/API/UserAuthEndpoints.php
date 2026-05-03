@@ -484,7 +484,6 @@ class UserAuthEndpoints
         return new WP_REST_Response(array(
             'success'   => true,
             'message'   => __('Address added successfully', 'woocommerce'),
-            'data'      => $address,
             'addresses' => array_values($addresses),
         ), 201);
     }
