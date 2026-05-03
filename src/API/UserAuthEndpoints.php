@@ -395,11 +395,15 @@ class UserAuthEndpoints
             $addresses = array();
         }
 
-        return new WP_REST_Response(array(
+        $response = new WP_REST_Response(array(
             'success' => true,
             'data'    => array_values($addresses),
             'total'   => count($addresses),
         ), 200);
+        $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $response->header('Pragma', 'no-cache');
+
+        return $response;
     }
 
     /**
