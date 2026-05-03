@@ -574,6 +574,14 @@ class UserAuthEndpoints
         $address_id = $request->get_param('id');
         $user_id    = (int) $request->get_param('user_id');
 
+        if (empty($address_id)) {
+            return new WP_Error(
+                'missing_address_id',
+                __('Address ID is required', 'woocommerce'),
+                array('status' => 400)
+            );
+        }
+
         if (!$user_id || !get_user_by('id', $user_id)) {
             return new WP_Error(
                 'user_not_found',
@@ -600,7 +608,7 @@ class UserAuthEndpoints
         if ($found_index === null) {
             return new WP_Error(
                 'address_not_found',
-                __('Address not found', 'woocommerce'),
+                __('Address not found or does not belong to this user', 'woocommerce'),
                 array('status' => 404)
             );
         }
