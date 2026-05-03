@@ -475,6 +475,7 @@ class UserAuthEndpoints
 
         $addresses[] = $address;
         update_user_meta($user_id, Constants::META_USER_ADDRESSES, $addresses);
+        clean_user_cache($user_id);
 
         return new WP_REST_Response(array(
             'success' => true,
@@ -547,6 +548,7 @@ class UserAuthEndpoints
         }
 
         update_user_meta($user_id, Constants::META_USER_ADDRESSES, $addresses);
+        clean_user_cache($user_id);
 
         return new WP_REST_Response(array(
             'success' => true,
@@ -605,6 +607,7 @@ class UserAuthEndpoints
         }
 
         update_user_meta($user_id, Constants::META_USER_ADDRESSES, $addresses);
+        clean_user_cache($user_id);
 
         return new WP_REST_Response(array(
             'success' => true,
