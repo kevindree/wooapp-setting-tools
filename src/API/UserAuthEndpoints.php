@@ -557,7 +557,6 @@ class UserAuthEndpoints
         return new WP_REST_Response(array(
             'success'   => true,
             'message'   => __('Address updated successfully', 'woocommerce'),
-            'data'      => $addresses[$found_index],
             'addresses' => array_values($addresses),
         ), 200);
     }
