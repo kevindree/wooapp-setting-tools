@@ -482,9 +482,9 @@ class UserAuthEndpoints
         clean_user_cache($user_id);
 
         return new WP_REST_Response(array(
-            'success'   => true,
-            'message'   => __('Address added successfully', 'woocommerce'),
-            'addresses' => array_values($addresses),
+            'success' => true,
+            'message' => __('Address added successfully', 'woocommerce'),
+            'data'    => array_values($addresses),
         ), 201);
     }
 
@@ -555,9 +555,9 @@ class UserAuthEndpoints
         clean_user_cache($user_id);
 
         return new WP_REST_Response(array(
-            'success'   => true,
-            'message'   => __('Address updated successfully', 'woocommerce'),
-            'addresses' => array_values($addresses),
+            'success' => true,
+            'message' => __('Address updated successfully', 'woocommerce'),
+            'data'    => array_values($addresses),
         ), 200);
     }
 
@@ -622,9 +622,9 @@ class UserAuthEndpoints
         clean_user_cache($user_id);
 
         return new WP_REST_Response(array(
-            'success'   => true,
-            'message'   => __('Address deleted successfully', 'woocommerce'),
-            'addresses' => array_values($addresses),
+            'success' => true,
+            'message' => __('Address deleted successfully', 'woocommerce'),
+            'data'    => array_values($addresses),
         ), 200);
     }
 }
